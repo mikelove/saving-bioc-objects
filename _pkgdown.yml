@@ -10,13 +10,16 @@ home:
   description: >
     Guidance on strategies for saving and sharing Bioconductor objects.
 
+reference: ~
+
 navbar:
   structure:
-    left: [intro, articles, reference]
+    left: [intro, articles]
     right: [github]
   components:
     github:
       icon: fa-github
+      aria-label: GitHub
       href: https://github.com/mikelove/saving-bioc-objects
 
 articles:
