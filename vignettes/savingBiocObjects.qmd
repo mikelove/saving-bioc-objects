@@ -259,9 +259,14 @@ alongside the BED file and restore it on load:
 tmp_seqinfo <- tempfile(fileext = ".csv")
 write.csv(as.data.frame(seqinfo(gr)), tmp_seqinfo)
 
-si <- as(read.csv(tmp_seqinfo, row.names = 1), "Seqinfo")
-gr_reloaded <- import(tmp_bed)
-seqinfo(gr_reloaded) <- si
+df <- read.csv(tmp_seqinfo, row.names = 1)
+si <- Seqinfo(
+  seqnames   = rownames(df),
+  seqlengths = as.integer(df$seqlengths),
+  isCircular = as.logical(df$isCircular),
+  genome     = as.character(df$genome)
+)
+si
 ```
 
 ## Saving metadata to JSON
