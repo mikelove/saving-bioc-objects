@@ -27,18 +27,22 @@ objects into an `.RData` (or `.rda`) file.
 
 ``` r
 
-se <- SummarizedExperiment::SummarizedExperiment(
+library(SummarizedExperiment)
+
+se <- SummarizedExperiment(
   assays = list(counts = matrix(1:12, nrow = 3)),
-  colData = S4Vectors::DataFrame(condition = c("A", "A", "B", "B"))
+  colData = DataFrame(condition = c("A", "A", "B", "B"))
 )
 
 # Single object
-saveRDS(se, file = "my_se.rds")
-se2 <- readRDS("my_se.rds")
+tmp_rds <- tempfile(fileext = ".rds")
+saveRDS(se, file = tmp_rds)
+se2 <- readRDS(tmp_rds)
 
 # Multiple objects in one file
-save(se, file = "my_se.RData")
-load("my_se.RData")  # 'se' appears in the workspace
+tmp_rda <- tempfile(fileext = ".RData")
+save(se, file = tmp_rda)
+load(tmp_rda)
 ```
 
 Prefer [`saveRDS()`](https://rdrr.io/pkg/BiocGenerics/man/saveRDS.html)
@@ -89,6 +93,7 @@ to migrate the internal representation:
 
 ``` r
 
+# not evaluated — requires an object saved under an older Bioconductor release
 gr <- readRDS("old_granges.rds")
 gr <- updateObject(gr, verbose = TRUE)
 ```
@@ -100,12 +105,18 @@ often enough:
 
 ``` r
 
-# Save
-write.table(as.data.frame(gr), "ranges.tsv", sep = "\t", quote = FALSE)
+library(GenomicRanges)
 
-# Restore
+gr <- GRanges(
+  seqnames = "chr1",
+  ranges = IRanges(start = c(100, 200, 300), width = 50)
+)
+
+tmp_tsv <- tempfile(fileext = ".tsv")
+write.table(as.data.frame(gr), tmp_tsv, sep = "\t", quote = FALSE)
+
 gr2 <- makeGRangesFromDataFrame(
-  read.table("ranges.tsv", header = TRUE, sep = "\t"),
+  read.table(tmp_tsv, header = TRUE, sep = "\t"),
   keep.extra.columns = TRUE
 )
 ```
@@ -127,13 +138,12 @@ out-of-memory computation.
 ``` r
 
 library(HDF5Array)
-library(SummarizedExperiment)
 
-# Save: writes a .h5 file and a small .rds "envelope"
-saveHDF5SummarizedExperiment(se, dir = "my_se_hdf5/", replace = TRUE)
+tmp_hdf5 <- tempfile()
+saveHDF5SummarizedExperiment(se, dir = tmp_hdf5, replace = TRUE)
 
-# Load: the assay data remains on disk until accessed
-se_h5 <- loadHDF5SummarizedExperiment("my_se_hdf5/")
+# Assay data remains on disk until accessed
+se_h5 <- loadHDF5SummarizedExperiment(tmp_hdf5)
 ```
 
 The saved directory contains an HDF5 file with the assay data and an
@@ -160,6 +170,47 @@ When to use it: large single-cell or spatial datasets where you want
 on-disk access; workflows shared between R users who need memory
 efficiency.
 
+### SummarizedExperiment and AnnData
+
+For single-cell workflows that move between R and Python, the
+[zellkonverter](https://bioconductor.org/packages/zellkonverter) package
+converts directly between `SingleCellExperiment` and the Python
+`AnnData` format (`.h5ad` files used by scanpy and related tools). Like
+`HDF5Array`, `.h5ad` is an HDF5-based format.
+
+``` r
+
+library(zellkonverter)
+library(SingleCellExperiment)
+
+sce <- as(se, "SingleCellExperiment")
+
+tmp_h5ad <- tempfile(fileext = ".h5ad")
+writeH5AD(sce, file = tmp_h5ad)
+```
+
+    Installing pyenv ...
+    Done! pyenv has been installed to '/home/runner/.local/share/r-reticulate/pyenv/bin/pyenv'.
+    Using Python: /home/runner/.pyenv/versions/3.14.0/bin/python3.14
+    Creating virtual environment '/home/runner/.cache/R/basilisk/1.24.0/zellkonverter/1.22.0/zellkonverterAnnDataEnv-0.12.3' ... 
+
+    Done!
+    Installing packages: pip, wheel, setuptools
+
+    Installing packages: 'anndata==0.12.3', 'h5py==3.15.1', 'natsort==8.4.0', 'numpy==2.3.4', 'pandas==2.3.3', 'scipy==1.16.2'
+
+    Virtual environment '/home/runner/.cache/R/basilisk/1.24.0/zellkonverter/1.22.0/zellkonverterAnnDataEnv-0.12.3' successfully created.
+
+``` r
+
+sce2 <- readH5AD(tmp_h5ad)
+```
+
+This is often the most convenient path when collaborators are working in
+scanpy, as `.h5ad` is the native format on that side. The trade-off
+relative to alabaster is that `.h5ad` is AnnData-specific rather than a
+general Bioconductor serialization format.
+
 ## The alabaster ecosystem
 
 The [`alabaster`](https://bioconductor.org/packages/alabaster.base)
@@ -171,12 +222,12 @@ other language.
 ``` r
 
 library(alabaster.base)
+library(alabaster.se)
 
-# Save to a directory
-saveObject(se, path = "my_se_alabaster/")
+tmp_alabaster <- tempfile()
+saveObject(se, path = tmp_alabaster)
 
-# Load back
-se3 <- readObject("my_se_alabaster/")
+se3 <- readObject(tmp_alabaster)
 ```
 
 The `alabaster` umbrella package pulls in support for the most common
@@ -204,30 +255,6 @@ When to use it: archival storage, data portal submissions,
 cross-language workflows, or any situation where you want the saved
 format to be readable without R.
 
-### SummarizedExperiment and AnnData
-
-For single-cell workflows that move between R and Python, a common
-alternative to alabaster is
-[zellkonverter](https://bioconductor.org/packages/zellkonverter), which
-converts directly between `SingleCellExperiment` and the Python
-`AnnData` format (`.h5ad` files used by scanpy and related tools).
-
-``` r
-
-library(zellkonverter)
-
-# SingleCellExperiment -> .h5ad (readable by scanpy in Python)
-writeH5AD(sce, file = "my_sce.h5ad")
-
-# .h5ad -> SingleCellExperiment
-sce2 <- readH5AD("my_sce.h5ad")
-```
-
-This is often the most convenient path when collaborators are working in
-scanpy, as `.h5ad` is the native format on that side. The trade-off
-relative to alabaster is that `.h5ad` is AnnData-specific rather than a
-general Bioconductor serialization format.
-
 ## Exporting genomic ranges to BED
 
 When the object is a `GRanges` or similar ranges object and the goal is
@@ -237,13 +264,18 @@ serialization. Two options:
 
 ``` r
 
-# rtracklayer — general-purpose genomics I/O
 library(rtracklayer)
-export(gr, "ranges.bed")
 
-# plyranges — tidier interface, writes BED3/BED6 depending on the object
+tmp_bed <- tempfile(fileext = ".bed")
+export(gr, tmp_bed)
+```
+
+``` r
+
 library(plyranges)
-write_bed(gr, "ranges.bed")
+
+tmp_bed2 <- tempfile(fileext = ".bed")
+write_bed(gr, tmp_bed2)
 ```
 
 ### Saving Seqinfo separately
@@ -254,13 +286,22 @@ alongside the BED file and restore it on load:
 
 ``` r
 
-# Save
-write.csv(as.data.frame(seqinfo(gr)), "seqinfo.csv")
+tmp_seqinfo <- tempfile(fileext = ".csv")
+write.csv(as.data.frame(seqinfo(gr)), tmp_seqinfo)
 
-# Restore
-si <- as(read.csv("seqinfo.csv", row.names = 1), "Seqinfo")
-seqinfo(gr2) <- si
+df <- read.csv(tmp_seqinfo, row.names = 1)
+si <- Seqinfo(
+  seqnames   = rownames(df),
+  seqlengths = as.integer(df$seqlengths),
+  isCircular = as.logical(df$isCircular),
+  genome     = as.character(df$genome)
+)
+si
 ```
+
+    Seqinfo object with 1 sequence from an unspecified genome; no seqlengths:
+      seqnames seqlengths isCircular genome
+      chr1             NA         NA   <NA>
 
 ## Saving metadata to JSON
 
@@ -275,12 +316,12 @@ data:
 
 library(jsonlite)
 
-# Write
-writeLines(toJSON(metadata(se), pretty = TRUE, auto_unbox = TRUE),
-           "metadata.json")
+metadata(se) <- list(genome = "hg38", pipeline = "v2.1", n_samples = 4L)
 
-# Read back
-metadata(se2) <- fromJSON("metadata.json")
+tmp_json <- tempfile(fileext = ".json")
+writeLines(toJSON(metadata(se), pretty = TRUE, auto_unbox = TRUE), tmp_json)
+
+metadata(se2) <- fromJSON(tmp_json)
 ```
 
 `toJSON` handles simple R types (lists, vectors, data frames) well, but
@@ -332,10 +373,40 @@ sessionInfo()
     tzcode source: system (glibc)
 
     attached base packages:
-    [1] stats     graphics  grDevices utils     datasets  methods   base
+    [1] stats4    stats     graphics  grDevices utils     datasets  methods
+    [8] base
+
+    other attached packages:
+     [1] jsonlite_2.0.0              plyranges_1.32.0
+     [3] dplyr_1.2.1                 rtracklayer_1.72.0
+     [5] alabaster.se_1.12.0         alabaster.base_1.12.0
+     [7] SingleCellExperiment_1.34.0 zellkonverter_1.22.0
+     [9] HDF5Array_1.40.0            h5mread_1.4.0
+    [11] rhdf5_2.56.0                DelayedArray_0.38.2
+    [13] SparseArray_1.12.2          S4Arrays_1.12.0
+    [15] abind_1.4-8                 Matrix_1.7-5
+    [17] SummarizedExperiment_1.42.0 Biobase_2.72.0
+    [19] GenomicRanges_1.64.0        Seqinfo_1.2.0
+    [21] IRanges_2.46.0              S4Vectors_0.50.1
+    [23] BiocGenerics_0.58.1         generics_0.1.4
+    [25] MatrixGenerics_1.24.0       matrixStats_1.5.0
 
     loaded via a namespace (and not attached):
-     [1] compiler_4.6.0  fastmap_1.2.0   cli_3.6.6       tools_4.6.0
-     [5] htmltools_0.5.9 otel_0.2.0      yaml_2.3.12     rmarkdown_2.31
-     [9] knitr_1.51      jsonlite_2.0.0  xfun_0.58       digest_0.6.39
-    [13] rlang_1.2.0     evaluate_1.0.5 
+     [1] dir.expiry_1.20.0        rjson_0.2.23             xfun_0.58
+     [4] lattice_0.22-9           vctrs_0.7.3              rhdf5filters_1.24.0
+     [7] tools_4.6.0              bitops_1.0-9             curl_7.1.0
+    [10] parallel_4.6.0           tibble_3.3.1             pkgconfig_2.0.3
+    [13] cigarillo_1.2.0          lifecycle_1.0.5          compiler_4.6.0
+    [16] Rsamtools_2.28.0         Biostrings_2.80.1        codetools_0.2-20
+    [19] htmltools_0.5.9          RCurl_1.98-1.19          alabaster.matrix_1.12.0
+    [22] yaml_2.3.12              pillar_1.11.1            crayon_1.5.3
+    [25] BiocParallel_1.46.0      basilisk_1.24.0          tidyselect_1.2.1
+    [28] digest_0.6.39            restfulr_0.0.16          fastmap_1.2.0
+    [31] grid_4.6.0               cli_3.6.6                magrittr_2.0.5
+    [34] XML_3.99-0.23            withr_3.0.2              filelock_1.0.3
+    [37] rappdirs_0.3.4           rmarkdown_2.31           XVector_0.52.0
+    [40] httr_1.4.8               otel_0.2.0               reticulate_1.46.0
+    [43] png_0.1-9                evaluate_1.0.5           knitr_1.51
+    [46] BiocIO_1.22.0            rlang_1.2.0              Rcpp_1.1.1-1.1
+    [49] glue_1.8.1               alabaster.ranges_1.12.0  alabaster.schemas_1.12.0
+    [52] R6_2.6.1                 Rhdf5lib_2.0.0           GenomicAlignments_1.48.0
