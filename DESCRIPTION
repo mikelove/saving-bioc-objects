@@ -1,0 +1,31 @@
+Package: savingBiocObjects
+Title: Saving Bioconductor Objects for Sharing
+Version: 0.1.0
+Authors@R:
+    person("Mike", "Love", , "michaelisaiahlove@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-8401-0545"))
+Description: Documentation and guidance on strategies for saving and sharing
+    Bioconductor objects, covering RDS serialization, HDF5-backed storage,
+    the alabaster ecosystem for cross-language interoperability, exporting
+    genomic ranges to standard formats, and preserving object metadata.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+biocViews: DataRepresentation, Infrastructure, Software
+Suggests:
+    alabaster.base,
+    BiocStyle,
+    HDF5Array,
+    jsonlite,
+    knitr,
+    plyranges,
+    quarto,
+    rhdf5,
+    rmarkdown,
+    rtracklayer,
+    SummarizedExperiment,
+    zellkonverter
+VignetteBuilder: quarto
+URL: https://mikelove.github.io/saving-bioc-objects
+BugReports: https://github.com/mikelove/saving-bioc-objects/issues
+Config/roxygen2/version: 8.0.0

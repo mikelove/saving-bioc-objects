@@ -1,0 +1,25 @@
+url: https://mikelove.github.io/saving-bioc-objects
+
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#0054AD"
+
+home:
+  title: "savingBiocObjects"
+  description: >
+    Guidance on strategies for saving and sharing Bioconductor objects.
+
+navbar:
+  structure:
+    left: [intro, articles, reference]
+    right: [github]
+  components:
+    github:
+      icon: fa-github
+      href: https://github.com/mikelove/saving-bioc-objects
+
+articles:
+  - title: "Saving Bioconductor Objects"
+    contents:
+      - savingBiocObjects
