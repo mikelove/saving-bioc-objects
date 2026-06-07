@@ -14,6 +14,7 @@ Roxygen: list(markdown = TRUE)
 biocViews: DataRepresentation, Infrastructure, Software
 Suggests:
     alabaster.base,
+    alabaster.se,
     BiocStyle,
     GenomicRanges,
     HDF5Array,
