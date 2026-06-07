@@ -35,19 +35,22 @@ a single object to an `.rds` file; `save()` bundles one or more named objects
 into an `.RData` (or `.rda`) file.
 
 ```{r}
-#| eval: false
-se <- SummarizedExperiment::SummarizedExperiment(
+library(SummarizedExperiment)
+
+se <- SummarizedExperiment(
   assays = list(counts = matrix(1:12, nrow = 3)),
-  colData = S4Vectors::DataFrame(condition = c("A", "A", "B", "B"))
+  colData = DataFrame(condition = c("A", "A", "B", "B"))
 )
 
 # Single object
-saveRDS(se, file = "my_se.rds")
-se2 <- readRDS("my_se.rds")
+tmp_rds <- tempfile(fileext = ".rds")
+saveRDS(se, file = tmp_rds)
+se2 <- readRDS(tmp_rds)
 
 # Multiple objects in one file
-save(se, file = "my_se.RData")
-load("my_se.RData")  # 'se' appears in the workspace
+tmp_rda <- tempfile(fileext = ".RData")
+save(se, file = tmp_rda)
+load(tmp_rda)
 ```
 
 Prefer `saveRDS()` for most use cases. `save()` / `load()` silently overwrites
@@ -102,13 +105,18 @@ all — you should. For a `GRanges`, for instance, a simple TSV is often
 enough:
 
 ```{r}
-#| eval: false
-# Save
-write.table(as.data.frame(gr), "ranges.tsv", sep = "\t", quote = FALSE)
+library(GenomicRanges)
 
-# Restore
+gr <- GRanges(
+  seqnames = "chr1",
+  ranges = IRanges(start = c(100, 200, 300), width = 50)
+)
+
+tmp_tsv <- tempfile(fileext = ".tsv")
+write.table(as.data.frame(gr), tmp_tsv, sep = "\t", quote = FALSE)
+
 gr2 <- makeGRangesFromDataFrame(
-  read.table("ranges.tsv", header = TRUE, sep = "\t"),
+  read.table(tmp_tsv, header = TRUE, sep = "\t"),
   keep.extra.columns = TRUE
 )
 ```
@@ -127,15 +135,13 @@ array classes backed by HDF5 files, enabling lazy loading and out-of-memory
 computation.
 
 ```{r}
-#| eval: false
 library(HDF5Array)
-library(SummarizedExperiment)
 
-# Save: writes a .h5 file and a small .rds "envelope"
-saveHDF5SummarizedExperiment(se, dir = "my_se_hdf5/", replace = TRUE)
+tmp_hdf5 <- tempfile()
+saveHDF5SummarizedExperiment(se, dir = tmp_hdf5, replace = TRUE)
 
-# Load: the assay data remains on disk until accessed
-se_h5 <- loadHDF5SummarizedExperiment("my_se_hdf5/")
+# Assay data remains on disk until accessed
+se_h5 <- loadHDF5SummarizedExperiment(tmp_hdf5)
 ```
 
 The saved directory contains an HDF5 file with the assay data and an `.rds`
@@ -158,6 +164,31 @@ Disadvantages:
 When to use it: large single-cell or spatial datasets where you want
 on-disk access; workflows shared between R users who need memory efficiency.
 
+### SummarizedExperiment and AnnData
+
+For single-cell workflows that move between R and Python, the
+[zellkonverter](https://bioconductor.org/packages/zellkonverter) package
+converts directly between `SingleCellExperiment` and the Python `AnnData`
+format (`.h5ad` files used by scanpy and related tools). Like `HDF5Array`,
+`.h5ad` is an HDF5-based format.
+
+```{r}
+library(zellkonverter)
+library(SingleCellExperiment)
+
+sce <- as(se, "SingleCellExperiment")
+
+tmp_h5ad <- tempfile(fileext = ".h5ad")
+writeH5AD(sce, file = tmp_h5ad)
+
+sce2 <- readH5AD(tmp_h5ad)
+```
+
+This is often the most convenient path when collaborators are working in
+scanpy, as `.h5ad` is the native format on that side. The trade-off relative
+to alabaster is that `.h5ad` is AnnData-specific rather than a general
+Bioconductor serialization format.
+
 ## The alabaster ecosystem
 
 The [`alabaster`](https://bioconductor.org/packages/alabaster.base) family of
@@ -166,14 +197,12 @@ Objects are saved as a directory of standard files (HDF5, JSON, CSV) with a
 schema that can be read from R, Python, or any other language.
 
 ```{r}
-#| eval: false
 library(alabaster.base)
 
-# Save to a directory
-saveObject(se, path = "my_se_alabaster/")
+tmp_alabaster <- tempfile()
+saveObject(se, path = tmp_alabaster)
 
-# Load back
-se3 <- readObject("my_se_alabaster/")
+se3 <- readObject(tmp_alabaster)
 ```
 
 The `alabaster` umbrella package pulls in support for the most common
@@ -199,30 +228,6 @@ When to use it: archival storage, data portal submissions, cross-language
 workflows, or any situation where you want the saved format to be readable
 without R.
 
-### SummarizedExperiment and AnnData
-
-For single-cell workflows that move between R and Python, a common alternative
-to alabaster is
-[zellkonverter](https://bioconductor.org/packages/zellkonverter), which
-converts directly between `SingleCellExperiment` and the Python `AnnData`
-format (`.h5ad` files used by scanpy and related tools).
-
-```{r}
-#| eval: false
-library(zellkonverter)
-
-# SingleCellExperiment -> .h5ad (readable by scanpy in Python)
-writeH5AD(sce, file = "my_sce.h5ad")
-
-# .h5ad -> SingleCellExperiment
-sce2 <- readH5AD("my_sce.h5ad")
-```
-
-This is often the most convenient path when collaborators are working in
-scanpy, as `.h5ad` is the native format on that side. The trade-off relative
-to alabaster is that `.h5ad` is AnnData-specific rather than a general
-Bioconductor serialization format.
-
 ## Exporting genomic ranges to BED
 
 When the object is a `GRanges` or similar ranges object and the goal is
@@ -231,14 +236,17 @@ utilities), exporting to BED format is often more useful than R-specific
 serialization. Two options:
 
 ```{r}
-#| eval: false
-# rtracklayer — general-purpose genomics I/O
 library(rtracklayer)
-export(gr, "ranges.bed")
 
-# plyranges — tidier interface, writes BED3/BED6 depending on the object
+tmp_bed <- tempfile(fileext = ".bed")
+export(gr, tmp_bed)
+```
+
+```{r}
 library(plyranges)
-write_bed(gr, "ranges.bed")
+
+tmp_bed2 <- tempfile(fileext = ".bed")
+write_bed(gr, tmp_bed2)
 ```
 
 ### Saving Seqinfo separately
@@ -248,13 +256,12 @@ BED files do not store chromosome lengths or genome build information, so
 alongside the BED file and restore it on load:
 
 ```{r}
-#| eval: false
-# Save
-write.csv(as.data.frame(seqinfo(gr)), "seqinfo.csv")
+tmp_seqinfo <- tempfile(fileext = ".csv")
+write.csv(as.data.frame(seqinfo(gr)), tmp_seqinfo)
 
-# Restore
-si <- as(read.csv("seqinfo.csv", row.names = 1), "Seqinfo")
-seqinfo(gr2) <- si
+si <- as(read.csv(tmp_seqinfo, row.names = 1), "Seqinfo")
+gr_reloaded <- import(tmp_bed)
+seqinfo(gr_reloaded) <- si
 ```
 
 ## Saving metadata to JSON
@@ -266,15 +273,14 @@ are writing a BED file, an HDF5 matrix, or any other non-R format. Write it
 to a JSON sidecar file so it travels with the data:
 
 ```{r}
-#| eval: false
 library(jsonlite)
 
-# Write
-writeLines(toJSON(metadata(se), pretty = TRUE, auto_unbox = TRUE),
-           "metadata.json")
+metadata(se) <- list(genome = "hg38", pipeline = "v2.1", n_samples = 4L)
 
-# Read back
-metadata(se2) <- fromJSON("metadata.json")
+tmp_json <- tempfile(fileext = ".json")
+writeLines(toJSON(metadata(se), pretty = TRUE, auto_unbox = TRUE), tmp_json)
+
+metadata(se2) <- fromJSON(tmp_json)
 ```
 
 `toJSON` handles simple R types (lists, vectors, data frames) well, but

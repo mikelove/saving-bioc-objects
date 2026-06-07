@@ -15,6 +15,7 @@ biocViews: DataRepresentation, Infrastructure, Software
 Suggests:
     alabaster.base,
     BiocStyle,
+    GenomicRanges,
     HDF5Array,
     jsonlite,
     knitr,
@@ -23,6 +24,7 @@ Suggests:
     rhdf5,
     rmarkdown,
     rtracklayer,
+    SingleCellExperiment,
     SummarizedExperiment,
     zellkonverter
 VignetteBuilder: quarto
