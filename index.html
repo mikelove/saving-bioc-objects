@@ -51,16 +51,11 @@
 <p>Documentation and guidance on strategies for saving and sharing Bioconductor objects.</p>
 <p>Topics covered:</p>
 <ul>
-<li>
-<code><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS()</a></code> / <code><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">readRDS()</a></code> for simple R-to-R sharing, and cross-release stability</li>
-<li>HDF5-backed storage with <code>HDF5Array</code> for large assay data</li>
-<li>The <code>alabaster</code> ecosystem for language-agnostic serialization</li>
-<li>Converting between <code>SingleCellExperiment</code> and <code>AnnData</code> with <code>zellkonverter</code>
-</li>
-<li>Exporting genomic ranges to BED with <code>rtracklayer</code> or <code>plyranges</code>
-</li>
-<li>Preserving <code>metadata(object)</code> as a JSON sidecar file</li>
-<li>A summary table of recommendations by use case</li>
+<li>R serialization with <code><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS()</a></code> and cross-release stability</li>
+<li>HDF5-backed storage for large assay data</li>
+<li>The <em>ArtifactDB</em> ecosystem for cross-language serialization</li>
+<li>Use of BED format for genomic ranges</li>
+<li>Preserving object metadata alongside saved files</li>
 </ul>
 <div class="section level2">
 <h2 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
