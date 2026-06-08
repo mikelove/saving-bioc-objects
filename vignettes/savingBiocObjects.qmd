@@ -104,13 +104,15 @@ defined at all in the earlier version, or that it exists but its definition has
 changed — new slots added, slots renamed or removed, or infrastructure moved
 between packages.
 
-A concrete example: in a recent Bioconductor release, `Seqinfo` was moved out
-of `GenomicRanges` into its own package. A `GRanges` serialized on a machine
-with the newer setup could not be loaded on a machine with the older
-`GenomicRanges` because the class definition for the embedded `Seqinfo` slot
-was not found. The reverse was also true: older `GRanges` objects loaded into
-a newer session sometimes required `updateObject()` to migrate the internal
-representation:
+A concrete example: in Bioconductor 3.22, `Seqinfo` was moved out of
+`GenomicRanges` into its own package. A `GRanges` serialized under BioC ≥ 3.22
+can still be loaded on a machine running BioC < 3.22, and many basic operations
+work — `show()`, `seqnames()`, `ranges()`, `mcols()`, and `[` among them. But
+operations that require the `Seqinfo` package (such as `shift()` or `reduce()`)
+will fail with a confusing "package not available" error. The practical advice
+is to upgrade to BioC ≥ 3.22. The reverse was also true: older `GRanges`
+objects loaded into a newer session sometimes required `updateObject()` to
+migrate the internal representation:
 
 ```{r}
 #| label: update-object
@@ -132,7 +134,9 @@ library(GenomicRanges)
 
 gr <- GRanges(
   seqnames = "chr1",
-  ranges = IRanges(start = c(100, 200, 300), width = 50)
+  ranges = IRanges(start = c(100, 200, 300), width = 50),
+  seqinfo = Seqinfo(seqnames = "chr1", seqlengths = 248956422,
+                    isCircular = FALSE, genome = "hg38")
 )
 names(gr) <- c("peak1", "peak2", "peak3")
 gr$score  <- c(500, 800, 300)   # standard BED score column
@@ -323,16 +327,21 @@ tmp_bed2 <- tempfile(fileext = ".bed")
 write_bed(gr, tmp_bed2)
 ```
 
-When reading back, names and the standard `score` column are preserved, but
-`log2fc` is silently dropped — BED has no mechanism to carry arbitrary
-metadata columns:
+When reading back, the standard `score` column is preserved, but `log2fc` is
+silently dropped — BED has no mechanism to carry arbitrary metadata columns.
+Range names are stored in the BED name field but come back as a `$name`
+metadata column rather than as R names on the object; restore them manually:
 
 ```{r}
 #| label: bed-read
 gr_rtracklayer <- import(tmp_bed)
+names(gr_rtracklayer) <- gr_rtracklayer$name
+gr_rtracklayer$name <- NULL
 gr_rtracklayer
 
 gr_plyranges <- read_bed(tmp_bed2)
+names(gr_plyranges) <- gr_plyranges$name
+gr_plyranges$name <- NULL
 gr_plyranges
 ```
 
@@ -389,7 +398,11 @@ to a JSON sidecar file so it travels with the data:
 #| message: false
 library(jsonlite)
 
-metadata(se) <- list(genome = "hg38", pipeline = "v2.1", n_samples = 4L)
+metadata(se) <- list(
+  timestamp = as.POSIXct("2020-01-01 12:00:00", tz = "UTC"),
+  pipeline = "v2.1",
+  n_samples = 4L
+)
 
 tmp_json <- tempfile(fileext = ".json")
 writeLines(toJSON(metadata(se), pretty = TRUE, auto_unbox = TRUE), tmp_json)
