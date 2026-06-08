@@ -5,13 +5,11 @@ objects.
 
 Topics covered:
 
-- `saveRDS()` / `readRDS()` for simple R-to-R sharing, and cross-release stability
-- HDF5-backed storage with `HDF5Array` for large assay data
-- The `alabaster` ecosystem for language-agnostic serialization
-- Converting between `SingleCellExperiment` and `AnnData` with `zellkonverter`
-- Exporting genomic ranges to BED with `rtracklayer` or `plyranges`
-- Preserving `metadata(object)` as a JSON sidecar file
-- A summary table of recommendations by use case
+- R serialization with `saveRDS()` and cross-release stability
+- HDF5-backed storage for large assay data
+- The _ArtifactDB_ ecosystem for cross-language serialization
+- Use of BED format for genomic ranges
+- Preserving object metadata alongside saved files
 
 ## Contributing
 

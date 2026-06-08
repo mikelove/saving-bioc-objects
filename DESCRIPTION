@@ -13,21 +13,16 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 biocViews: DataRepresentation, Infrastructure, Software
 Suggests:
-    alabaster.base,
-    alabaster.se,
-    BiocStyle,
+    SummarizedExperiment,
     GenomicRanges,
     HDF5Array,
+    alabaster.base,
+    alabaster.se,
+    rtracklayer,
+    plyranges,
     jsonlite,
     knitr,
-    plyranges,
-    quarto,
-    rhdf5,
-    rmarkdown,
-    rtracklayer,
-    SingleCellExperiment,
-    SummarizedExperiment,
-    zellkonverter
+    quarto
 VignetteBuilder: quarto
 URL: https://mikelove.github.io/saving-bioc-objects
 BugReports: https://github.com/mikelove/saving-bioc-objects/issues

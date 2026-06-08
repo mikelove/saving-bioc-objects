@@ -30,11 +30,14 @@ recommendations for common scenarios.
 
 ## R serialization
 
+### saveRDS and readRDS
+
 The simplest approach is R's built-in binary serialization. `saveRDS()` saves
 a single object to an `.rds` file; `save()` bundles one or more named objects
 into an `.RData` (or `.rda`) file.
 
 ```{r}
+#| label: rds-save-load
 #| message: false
 library(SummarizedExperiment)
 
@@ -103,8 +106,9 @@ a newer session sometimes required `updateObject()` to migrate the internal
 representation:
 
 ```{r}
+#| label: update-object
 #| eval: false
-# not evaluated
+# not evaluated — requires an object saved under an older Bioconductor release
 gr <- readRDS("old_granges.rds")
 gr <- updateObject(gr, verbose = TRUE)
 ```
@@ -115,6 +119,7 @@ all — you should. For a `GRanges`, for instance, a simple TSV is often
 enough:
 
 ```{r}
+#| label: granges-tsv
 #| message: false
 library(GenomicRanges)
 
@@ -143,6 +148,8 @@ using HDF5 and JSON as the underlying storage formats.
 
 ## HDF5-backed storage
 
+### Saving with HDF5Array
+
 For large assay matrices (e.g., single-cell count matrices with millions of
 cells), it is impractical to hold the entire object in RAM. The
 [`HDF5Array`](https://bioconductor.org/packages/HDF5Array) package provides
@@ -150,6 +157,7 @@ array classes backed by HDF5 files, enabling lazy loading and out-of-memory
 computation.
 
 ```{r}
+#| label: hdf5-save-load
 #| message: false
 library(HDF5Array)
 
@@ -190,7 +198,10 @@ format (`.h5ad` files used by scanpy and related tools). Like `HDF5Array`,
 `.h5ad` is an HDF5-based format.
 
 ```{r}
-#| message: false
+#| label: zellkonverter
+#| eval: false
+# not evaluated — zellkonverter installs a full Python environment via basilisk
+# on first use, which takes too long in CI
 library(zellkonverter)
 library(SingleCellExperiment)
 
@@ -210,6 +221,8 @@ Bioconductor serialization format.
 
 ## The alabaster ecosystem
 
+### saveObject and readObject
+
 The [`alabaster`](https://bioconductor.org/packages/alabaster.base) family of
 packages is part of the broader [ArtifactDB](https://github.com/ArtifactDB)
 project, which provides a multi-language system for storing and retrieving
@@ -220,6 +233,7 @@ form is readable without R, and can evolve over time without breaking
 previously saved objects.
 
 ```{r}
+#| label: alabaster-save-load
 #| message: false
 library(alabaster.base)
 library(alabaster.se)
@@ -272,7 +286,9 @@ When to use it: archival storage, data portal submissions, cross-language
 workflows, or any situation where you want the saved format to be readable
 without R.
 
-## Using plaintext formats
+## BED format for ranges
+
+### Writing BED files
 
 When the object is a `GRanges` or similar ranges object and the goal is
 interoperability with other tools (genome browsers, Python, command-line
@@ -281,12 +297,14 @@ serialization. Our `gr` has range names, a standard BED score column, and
 an extra metadata column `log2fc`:
 
 ```{r}
+#| label: show-gr
 gr
 ```
 
 Both `rtracklayer` and `plyranges` can write BED files:
 
 ```{r}
+#| label: bed-write
 #| message: false
 library(rtracklayer)
 library(plyranges)
@@ -303,6 +321,7 @@ When reading back, names and the standard `score` column are preserved, but
 metadata columns:
 
 ```{r}
+#| label: bed-read
 gr_rtracklayer <- import(tmp_bed)
 gr_rtracklayer
 
@@ -310,12 +329,13 @@ gr_plyranges <- read_bed(tmp_bed2)
 gr_plyranges
 ```
 
-### Saving metadata columns alongside a BED file
+### Saving metadata columns
 
 To round-trip extra mcols, write them to a sidecar file. Here using plyranges
 to read the BED back, then reattach from the sidecar:
 
 ```{r}
+#| label: bed-mcols-sidecar
 tmp_meta <- tempfile(fileext = ".tsv")
 write.table(
   data.frame(name = names(gr), log2fc = gr$log2fc),
@@ -335,6 +355,7 @@ BED files do not store chromosome lengths or genome build information, so
 alongside the BED file and restore it on load:
 
 ```{r}
+#| label: seqinfo-save-restore
 tmp_seqinfo <- tempfile(fileext = ".csv")
 write.csv(as.data.frame(seqinfo(gr)), tmp_seqinfo)
 
@@ -348,7 +369,7 @@ si <- Seqinfo(
 si
 ```
 
-## Considerations for object metadata
+## Propagating object metadata
 
 Object-level metadata stored in `metadata(object)` — things like processing
 parameters, provenance notes, or experiment descriptors — is lost in any
@@ -357,6 +378,7 @@ are writing a BED file, an HDF5 matrix, or any other non-R format. Write it
 to a JSON sidecar file so it travels with the data:
 
 ```{r}
+#| label: metadata-json
 #| message: false
 library(jsonlite)
 
@@ -392,5 +414,6 @@ require `updateObject()` when loaded under a different Bioconductor release.
 ## Session info
 
 ```{r}
+#| label: session-info
 sessionInfo()
 ```
