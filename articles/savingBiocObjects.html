@@ -47,7 +47,7 @@
 
       <h1>Saving Bioconductor Objects for Sharing</h1>
 
-      <p class="author">Mike Love</p>
+      <p class="author">Michael Love</p>
       <p class="date">2026-06-08</p>
 
       <small class="dont-index">Source: <a href="https://github.com/mikelove/saving-bioc-objects/blob/main/vignettes/savingBiocObjects.qmd" class="external-link"><code>vignettes/savingBiocObjects.qmd</code></a></small>
@@ -61,14 +61,17 @@
 
     <section class="level2"><h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
-<p>A common question in Bioinformatics workflows is: how should I save a Bioconductor object so that a collaborator can load and use it, or so that it persists reliably across time? The answer depends on several factors:</p>
+<p>Bioconductor objects are useful for their shared structure within the project, and that they enable rich metadata.</p>
+<p>How then should one save a Bioconductor object so that a collaborator can load and use it? Or so that it persists reliably across time?</p>
+<p>The answer depends on several factors:</p>
 <ul>
-<li>Longevity: will the file need to be readable in 5 or 10 years?</li>
+<li>Longevity: will the file need to be easily readable in 1 year, or 5-10 years from now?</li>
 <li>Language interoperability: does the recipient use R, Python, or both?</li>
 <li>Object size: is the object small enough to serialize entirely, or does it contain large on-disk arrays?</li>
+<li>Is it easy enough to write out in common formats (BED) or plaintext?</li>
 <li>Reproducibility: should the saved form capture provenance and metadata alongside data?</li>
 </ul>
-<p>This vignette walks through the main options, their trade-offs, and our recommendations for common scenarios.</p>
+<p>This vignette walks through the main options, their trade-offs, and some recommendations for common scenarios.</p>
 </section><section class="level2"><h2 id="r-serialization">R serialization<a class="anchor" aria-label="anchor" href="#r-serialization"></a>
 </h2>
 <section class="level3"><h3 id="saverds-and-readrds">saveRDS and readRDS<a class="anchor" aria-label="anchor" href="#saverds-and-readrds"></a>

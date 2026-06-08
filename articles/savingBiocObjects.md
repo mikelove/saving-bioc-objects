@@ -2,19 +2,24 @@
 
 ## Introduction
 
-A common question in Bioinformatics workflows is: how should I save a
-Bioconductor object so that a collaborator can load and use it, or so
-that it persists reliably across time? The answer depends on several
-factors:
+Bioconductor objects are useful for their shared structure within the
+project, and that they enable rich metadata.
 
-- Longevity: will the file need to be readable in 5 or 10 years?
+How then should one save a Bioconductor object so that a collaborator
+can load and use it? Or so that it persists reliably across time?
+
+The answer depends on several factors:
+
+- Longevity: will the file need to be easily readable in 1 year, or 5-10
+  years from now?
 - Language interoperability: does the recipient use R, Python, or both?
 - Object size: is the object small enough to serialize entirely, or does
   it contain large on-disk arrays?
+- Is it easy enough to write out in common formats (BED) or plaintext?
 - Reproducibility: should the saved form capture provenance and metadata
   alongside data?
 
-This vignette walks through the main options, their trade-offs, and our
+This vignette walks through the main options, their trade-offs, and some
 recommendations for common scenarios.
 
 ## R serialization
