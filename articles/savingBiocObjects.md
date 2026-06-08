@@ -31,18 +31,38 @@ library(SummarizedExperiment)
 
 se <- SummarizedExperiment(
   assays = list(counts = matrix(1:12, nrow = 3)),
-  colData = DataFrame(condition = c("A", "A", "B", "B"))
+  colData = DataFrame(
+    condition = c("A", "A", "B", "B"), 
+    row.names=1:4
+    ),
+  rowData = DataFrame(
+    gene = c("gene1","gene2","gene3"), 
+    row.names=1:3
+    )
 )
 
 # Single object
 tmp_rds <- tempfile(fileext = ".rds")
 saveRDS(se, file = tmp_rds)
-se2 <- readRDS(tmp_rds)
+se_from_rds <- readRDS(tmp_rds)
+se_from_rds
+```
+
+    class: SummarizedExperiment
+    dim: 3 4
+    metadata(0):
+    assays(1): counts
+    rownames(3): 1 2 3
+    rowData names(1): gene
+    colnames(4): 1 2 3 4
+    colData names(1): condition
+
+``` r
 
 # Multiple objects in one file
 tmp_rda <- tempfile(fileext = ".RData")
 save(se, file = tmp_rda)
-load(tmp_rda)
+load(tmp_rda)  # restores 'se' by name into the current environment
 ```
 
 Prefer [`saveRDS()`](https://rdrr.io/pkg/BiocGenerics/man/saveRDS.html)
@@ -93,7 +113,7 @@ to migrate the internal representation:
 
 ``` r
 
-# not evaluated — requires an object saved under an older Bioconductor release
+# not evaluated
 gr <- readRDS("old_granges.rds")
 gr <- updateObject(gr, verbose = TRUE)
 ```
@@ -111,15 +131,28 @@ gr <- GRanges(
   seqnames = "chr1",
   ranges = IRanges(start = c(100, 200, 300), width = 50)
 )
+names(gr) <- c("peak1", "peak2", "peak3")
+gr$score  <- c(500, 800, 300)   # standard BED score column
+gr$log2fc <- c(1.2, -0.5, 2.1) # extra metadata column
 
 tmp_tsv <- tempfile(fileext = ".tsv")
 write.table(as.data.frame(gr), tmp_tsv, sep = "\t", quote = FALSE)
 
-gr2 <- makeGRangesFromDataFrame(
+gr_from_tsv <- makeGRangesFromDataFrame(
   read.table(tmp_tsv, header = TRUE, sep = "\t"),
   keep.extra.columns = TRUE
 )
+gr_from_tsv
 ```
+
+    GRanges object with 3 ranges and 2 metadata columns:
+            seqnames    ranges strand |     score    log2fc
+               <Rle> <IRanges>  <Rle> | <integer> <numeric>
+      peak1     chr1   100-149      * |       500       1.2
+      peak2     chr1   200-249      * |       800      -0.5
+      peak3     chr1   300-349      * |       300       2.1
+      -------
+      seqinfo: 1 sequence from an unspecified genome; no seqlengths
 
 This round-trip survives any Bioconductor version and is readable from
 Python or the command line. The `alabaster` ecosystem (described below)
@@ -143,8 +176,18 @@ tmp_hdf5 <- tempfile()
 saveHDF5SummarizedExperiment(se, dir = tmp_hdf5, replace = TRUE)
 
 # Assay data remains on disk until accessed
-se_h5 <- loadHDF5SummarizedExperiment(tmp_hdf5)
+se_from_hdf5 <- loadHDF5SummarizedExperiment(tmp_hdf5)
+se_from_hdf5
 ```
+
+    class: SummarizedExperiment
+    dim: 3 4
+    metadata(0):
+    assays(1): counts
+    rownames(3): 1 2 3
+    rowData names(1): gene
+    colnames(4): 1 2 3 4
+    colData names(1): condition
 
 The saved directory contains an HDF5 file with the assay data and an
 `.rds` file for the non-assay metadata.
@@ -203,8 +246,21 @@ writeH5AD(sce, file = tmp_h5ad)
 
 ``` r
 
-sce2 <- readH5AD(tmp_h5ad)
+sce_from_h5ad <- readH5AD(tmp_h5ad)
+sce_from_h5ad
 ```
+
+    class: SingleCellExperiment
+    dim: 3 4
+    metadata(0):
+    assays(1): counts
+    rownames(3): 1 2 3
+    rowData names(1): gene
+    colnames(4): 1 2 3 4
+    colData names(1): condition
+    reducedDimNames(0):
+    mainExpName: NULL
+    altExpNames(0):
 
 This is often the most convenient path when collaborators are working in
 scanpy, as `.h5ad` is the native format on that side. The trade-off
@@ -214,10 +270,13 @@ general Bioconductor serialization format.
 ## The alabaster ecosystem
 
 The [`alabaster`](https://bioconductor.org/packages/alabaster.base)
-family of packages provides a language-agnostic, file-based
-serialization format. Objects are saved as a directory of standard files
-(HDF5, JSON, CSV) with a schema that can be read from R, Python, or any
-other language.
+family of packages is part of the broader
+[ArtifactDB](https://github.com/ArtifactDB) project, which provides a
+multi-language system for storing and retrieving analysis-ready
+Bioconductor objects. The core idea is to save objects as directories of
+standard files (HDF5, JSON, CSV) whose format is defined by explicit,
+versioned specifications — meaning the saved form is readable without R,
+and can evolve over time without breaking previously saved objects.
 
 ``` r
 
@@ -227,20 +286,50 @@ library(alabaster.se)
 tmp_alabaster <- tempfile()
 saveObject(se, path = tmp_alabaster)
 
-se3 <- readObject(tmp_alabaster)
+se_from_alabaster <- readObject(tmp_alabaster)
+se_from_alabaster
 ```
+
+    class: SummarizedExperiment
+    dim: 3 4
+    metadata(0):
+    assays(1): counts
+    rownames(3): 1 2 3
+    rowData names(1): gene
+    colnames(4): 1 2 3 4
+    colData names(1): condition
 
 The `alabaster` umbrella package pulls in support for the most common
 Bioconductor classes. Individual sub-packages cover specific classes:
 `alabaster.se` for `SummarizedExperiment`, `alabaster.sce` for
 `SingleCellExperiment`, and so on.
 
+### Validation with takane
+
+A key part of the ArtifactDB design is that saved directories can be
+independently validated against the format specification. This is
+handled by [takane](https://github.com/ArtifactDB/takane), a C++ library
+that maintains separate, versioned specifications for 30+ Bioconductor
+object types. Calling `takane::validate()` on a saved directory checks
+that all files conform to the expected layout and types, which means a
+collaborator or downstream tool can verify the integrity of a saved
+object without needing to load it into R. This makes alabaster
+directories suitable for deposition in data repositories where format
+conformance needs to be auditable.
+
+The Python counterpart to `alabaster` is the
+[dolomite](https://github.com/ArtifactDB/dolomite-base) family of
+packages, which reads and writes the same on-disk format. An object
+saved with `alabaster` in R can be read with `dolomite` in Python, and
+vice versa, with no conversion step.
+
 Advantages:
 
 - Truly language-agnostic: Python readers exist via the `dolomite`
   family of packages, enabling seamless R ↔︎ Python interoperability.
 - Built on open standards (HDF5, JSON); inspectable without R.
-- Forward-designed for long-term reproducibility and schema versioning.
+- Versioned format specifications with independent validation via
+  takane.
 - A good choice for archives or data portals.
 
 Disadvantages:
@@ -255,28 +344,103 @@ When to use it: archival storage, data portal submissions,
 cross-language workflows, or any situation where you want the saved
 format to be readable without R.
 
-## Exporting genomic ranges to BED
+## Using plaintext formats
 
 When the object is a `GRanges` or similar ranges object and the goal is
 interoperability with other tools (genome browsers, Python, command-line
 utilities), exporting to BED format is often more useful than R-specific
-serialization. Two options:
+serialization. Our `gr` has range names, a standard BED score column,
+and an extra metadata column `log2fc`:
+
+``` r
+
+gr
+```
+
+    GRanges object with 3 ranges and 2 metadata columns:
+            seqnames    ranges strand |     score    log2fc
+               <Rle> <IRanges>  <Rle> | <numeric> <numeric>
+      peak1     chr1   100-149      * |       500       1.2
+      peak2     chr1   200-249      * |       800      -0.5
+      peak3     chr1   300-349      * |       300       2.1
+      -------
+      seqinfo: 1 sequence from an unspecified genome; no seqlengths
+
+Both `rtracklayer` and `plyranges` can write BED files:
 
 ``` r
 
 library(rtracklayer)
+library(plyranges)
 
 tmp_bed <- tempfile(fileext = ".bed")
 export(gr, tmp_bed)
-```
-
-``` r
-
-library(plyranges)
 
 tmp_bed2 <- tempfile(fileext = ".bed")
 write_bed(gr, tmp_bed2)
 ```
+
+When reading back, names and the standard `score` column are preserved,
+but `log2fc` is silently dropped — BED has no mechanism to carry
+arbitrary metadata columns:
+
+``` r
+
+gr_rtracklayer <- import(tmp_bed)
+gr_rtracklayer
+```
+
+    GRanges object with 3 ranges and 2 metadata columns:
+          seqnames    ranges strand |        name     score
+             <Rle> <IRanges>  <Rle> | <character> <numeric>
+      [1]     chr1   100-149      * |       peak1       500
+      [2]     chr1   200-249      * |       peak2       800
+      [3]     chr1   300-349      * |       peak3       300
+      -------
+      seqinfo: 1 sequence from an unspecified genome; no seqlengths
+
+``` r
+
+gr_plyranges <- read_bed(tmp_bed2)
+gr_plyranges
+```
+
+    GRanges object with 3 ranges and 2 metadata columns:
+          seqnames    ranges strand |        name     score
+             <Rle> <IRanges>  <Rle> | <character> <numeric>
+      [1]     chr1   100-149      * |       peak1       500
+      [2]     chr1   200-249      * |       peak2       800
+      [3]     chr1   300-349      * |       peak3       300
+      -------
+      seqinfo: 1 sequence from an unspecified genome; no seqlengths
+
+### Saving metadata columns alongside a BED file
+
+To round-trip extra mcols, write them to a sidecar file. Here using
+plyranges to read the BED back, then reattach from the sidecar:
+
+``` r
+
+tmp_meta <- tempfile(fileext = ".tsv")
+write.table(
+  data.frame(name = names(gr), log2fc = gr$log2fc),
+  tmp_meta, sep = "\t", quote = FALSE, row.names = FALSE
+)
+
+gr_restored <- read_bed(tmp_bed2)
+meta <- read.table(tmp_meta, header = TRUE, sep = "\t")
+gr_restored$log2fc <- meta$log2fc
+gr_restored
+```
+
+    GRanges object with 3 ranges and 3 metadata columns:
+          seqnames    ranges strand |        name     score    log2fc
+             <Rle> <IRanges>  <Rle> | <character> <numeric> <numeric>
+      [1]     chr1   100-149      * |       peak1       500       1.2
+      [2]     chr1   200-249      * |       peak2       800      -0.5
+      [3]     chr1   300-349      * |       peak3       300       2.1
+      -------
+      seqinfo: 1 sequence from an unspecified genome; no seqlengths
 
 ### Saving Seqinfo separately
 
@@ -303,7 +467,7 @@ si
       seqnames seqlengths isCircular genome
       chr1             NA         NA   <NA>
 
-## Saving metadata to JSON
+## Considerations for object metadata
 
 Object-level metadata stored in `metadata(object)` — things like
 processing parameters, provenance notes, or experiment descriptors — is
@@ -321,8 +485,18 @@ metadata(se) <- list(genome = "hg38", pipeline = "v2.1", n_samples = 4L)
 tmp_json <- tempfile(fileext = ".json")
 writeLines(toJSON(metadata(se), pretty = TRUE, auto_unbox = TRUE), tmp_json)
 
-metadata(se2) <- fromJSON(tmp_json)
+metadata(se_from_rds) <- fromJSON(tmp_json)
+metadata(se_from_rds)
 ```
+
+    $genome
+    [1] "hg38"
+
+    $pipeline
+    [1] "v2.1"
+
+    $n_samples
+    [1] 4
 
 `toJSON` handles simple R types (lists, vectors, data frames) well, but
 complex objects (S4 instances, environments) need to be simplified or
@@ -333,12 +507,11 @@ omitted before serializing.
 | Scenario | Recommended approach |
 |----|----|
 | Quick sharing between R users, same Bioc release | [`saveRDS()`](https://rdrr.io/pkg/BiocGenerics/man/saveRDS.html) |
-| Shipping small data in a package | [`save()`](https://rdrr.io/r/base/save.html) → `data/*.rda` |
-| Large assay matrices, R-only | [`saveHDF5SummarizedExperiment()`](https://rdrr.io/pkg/HDF5Array/man/saveHDF5SummarizedExperiment.html) |
-| Cross-language (R + Python) | `alabaster::saveObject()` |
-| Long-term archive / data portal | `alabaster::saveObject()` |
-| Sharing genomic ranges with non-R tools | `rtracklayer::export()` or [`plyranges::write_bed()`](https://tidyomics.github.io/plyranges/reference/io-bed-write.html) |
 | Loading an object from an older Bioc release | [`updateObject()`](https://rdrr.io/pkg/BiocGenerics/man/updateObject.html) after [`readRDS()`](https://rdrr.io/r/base/readRDS.html) |
+| Large assay matrices, R-only | [`saveHDF5SummarizedExperiment()`](https://rdrr.io/pkg/HDF5Array/man/saveHDF5SummarizedExperiment.html) |
+| SingleCellExperiment ↔︎ Python AnnData | [`zellkonverter::writeH5AD()`](https://rdrr.io/pkg/zellkonverter/man/writeH5AD.html) / [`readH5AD()`](https://rdrr.io/pkg/zellkonverter/man/readH5AD.html) |
+| Cross-language (R + Python), general | `alabaster::saveObject()` |
+| Long-term archive / data portal | `alabaster::saveObject()` |
 
 In most new projects we recommend defaulting to
 [`saveRDS()`](https://rdrr.io/pkg/BiocGenerics/man/saveRDS.html) for
