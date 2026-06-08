@@ -131,7 +131,7 @@ colData names(1): condition</code></pre>
 </section><section class="level3"><h3 id="cross-release-stability">Cross-release stability<a class="anchor" aria-label="anchor" href="#cross-release-stability"></a>
 </h3>
 <p>There is no guarantee that an S4 object serialized today will work with older versions of Bioconductor. The most common reasons are that the S4 class is not defined at all in the earlier version, or that it exists but its definition has changed — new slots added, slots renamed or removed, or infrastructure moved between packages.</p>
-<p>A concrete example: in a recent Bioconductor release, <code>Seqinfo</code> was moved out of <code>GenomicRanges</code> into its own package. A <code>GRanges</code> serialized on a machine with the newer setup could not be loaded on a machine with the older <code>GenomicRanges</code> because the class definition for the embedded <code>Seqinfo</code> slot was not found. The reverse was also true: older <code>GRanges</code> objects loaded into a newer session sometimes required <code><a href="https://rdrr.io/pkg/BiocGenerics/man/updateObject.html" class="external-link">updateObject()</a></code> to migrate the internal representation:</p>
+<p>A concrete example: in Bioconductor 3.22, <code>Seqinfo</code> was moved out of <code>GenomicRanges</code> into its own package. A <code>GRanges</code> serialized under BioC ≥ 3.22 can still be loaded on a machine running BioC &lt; 3.22, and many basic operations work — <code><a href="https://rdrr.io/r/methods/show.html" class="external-link">show()</a></code>, <code><a href="https://rdrr.io/pkg/Seqinfo/man/seqinfo.html" class="external-link">seqnames()</a></code>, <code><a href="https://rdrr.io/pkg/IRanges/man/range-squeezers.html" class="external-link">ranges()</a></code>, <code><a href="https://rdrr.io/pkg/S4Vectors/man/Vector-class.html" class="external-link">mcols()</a></code>, and <code>[</code> among them. But operations that require the <code>Seqinfo</code> package (such as <code><a href="https://rdrr.io/pkg/IRanges/man/intra-range-methods.html" class="external-link">shift()</a></code> or <code><a href="https://rdrr.io/pkg/IRanges/man/inter-range-methods.html" class="external-link">reduce()</a></code>) will fail with a confusing “package not available” error. The practical advice is to upgrade to BioC ≥ 3.22. The reverse was also true: older <code>GRanges</code> objects loaded into a newer session sometimes required <code><a href="https://rdrr.io/pkg/BiocGenerics/man/updateObject.html" class="external-link">updateObject()</a></code> to migrate the internal representation:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># not evaluated — requires an object saved under an older Bioconductor release</span></span>
@@ -145,7 +145,9 @@ colData names(1): condition</code></pre>
 <span></span>
 <span><span class="va">gr</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/GenomicRanges/man/GRanges-class.html" class="external-link">GRanges</a></span><span class="op">(</span></span>
 <span>  seqnames <span class="op">=</span> <span class="st">"chr1"</span>,</span>
-<span>  ranges <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/IRanges/man/IRanges-constructor.html" class="external-link">IRanges</a></span><span class="op">(</span>start <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">200</span>, <span class="fl">300</span><span class="op">)</span>, width <span class="op">=</span> <span class="fl">50</span><span class="op">)</span></span>
+<span>  ranges <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/IRanges/man/IRanges-constructor.html" class="external-link">IRanges</a></span><span class="op">(</span>start <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">200</span>, <span class="fl">300</span><span class="op">)</span>, width <span class="op">=</span> <span class="fl">50</span><span class="op">)</span>,</span>
+<span>  seqinfo <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/Seqinfo/man/Seqinfo-class.html" class="external-link">Seqinfo</a></span><span class="op">(</span>seqnames <span class="op">=</span> <span class="st">"chr1"</span>, seqlengths <span class="op">=</span> <span class="fl">248956422</span>,</span>
+<span>                    isCircular <span class="op">=</span> <span class="cn">FALSE</span>, genome <span class="op">=</span> <span class="st">"hg38"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">gr</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"peak1"</span>, <span class="st">"peak2"</span>, <span class="st">"peak3"</span><span class="op">)</span></span>
 <span><span class="va">gr</span><span class="op">$</span><span class="va">score</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">500</span>, <span class="fl">800</span>, <span class="fl">300</span><span class="op">)</span>   <span class="co"># standard BED score column</span></span>
@@ -291,7 +293,7 @@ colData names(1): condition</code></pre>
   peak2     chr1   200-249      * |       800      -0.5
   peak3     chr1   300-349      * |       300       2.1
   -------
-  seqinfo: 1 sequence from an unspecified genome; no seqlengths</code></pre>
+  seqinfo: 1 sequence from hg38 genome</code></pre>
 </div>
 </div>
 <p>Both <code>rtracklayer</code> and <code>plyranges</code> can write BED files:</p>
@@ -306,31 +308,35 @@ colData names(1): condition</code></pre>
 <span><span class="va">tmp_bed2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".bed"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://tidyomics.github.io/plyranges/reference/io-bed-write.html" class="external-link">write_bed</a></span><span class="op">(</span><span class="va">gr</span>, <span class="va">tmp_bed2</span><span class="op">)</span></span></code></pre></div>
 </div>
-<p>When reading back, names and the standard <code>score</code> column are preserved, but <code>log2fc</code> is silently dropped — BED has no mechanism to carry arbitrary metadata columns:</p>
+<p>When reading back, the standard <code>score</code> column is preserved, but <code>log2fc</code> is silently dropped — BED has no mechanism to carry arbitrary metadata columns. Range names are stored in the BED name field but come back as a <code>$name</code> metadata column rather than as R names on the object; restore them manually:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">gr_rtracklayer</span> <span class="op">&lt;-</span> <span class="fu">import</span><span class="op">(</span><span class="va">tmp_bed</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">gr_rtracklayer</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">gr_rtracklayer</span><span class="op">$</span><span class="va">name</span></span>
+<span><span class="va">gr_rtracklayer</span><span class="op">$</span><span class="va">name</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
 <span><span class="va">gr_rtracklayer</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>GRanges object with 3 ranges and 2 metadata columns:
-      seqnames    ranges strand |        name     score
-         &lt;Rle&gt; &lt;IRanges&gt;  &lt;Rle&gt; | &lt;character&gt; &lt;numeric&gt;
-  [1]     chr1   100-149      * |       peak1       500
-  [2]     chr1   200-249      * |       peak2       800
-  [3]     chr1   300-349      * |       peak3       300
+<pre><code>GRanges object with 3 ranges and 1 metadata column:
+        seqnames    ranges strand |     score
+           &lt;Rle&gt; &lt;IRanges&gt;  &lt;Rle&gt; | &lt;numeric&gt;
+  peak1     chr1   100-149      * |       500
+  peak2     chr1   200-249      * |       800
+  peak3     chr1   300-349      * |       300
   -------
   seqinfo: 1 sequence from an unspecified genome; no seqlengths</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">gr_plyranges</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tidyomics.github.io/plyranges/reference/io-bed-read.html" class="external-link">read_bed</a></span><span class="op">(</span><span class="va">tmp_bed2</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">gr_plyranges</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">gr_plyranges</span><span class="op">$</span><span class="va">name</span></span>
+<span><span class="va">gr_plyranges</span><span class="op">$</span><span class="va">name</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
 <span><span class="va">gr_plyranges</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>GRanges object with 3 ranges and 2 metadata columns:
-      seqnames    ranges strand |        name     score
-         &lt;Rle&gt; &lt;IRanges&gt;  &lt;Rle&gt; | &lt;character&gt; &lt;numeric&gt;
-  [1]     chr1   100-149      * |       peak1       500
-  [2]     chr1   200-249      * |       peak2       800
-  [3]     chr1   300-349      * |       peak3       300
+<pre><code>GRanges object with 3 ranges and 1 metadata column:
+        seqnames    ranges strand |     score
+           &lt;Rle&gt; &lt;IRanges&gt;  &lt;Rle&gt; | &lt;numeric&gt;
+  peak1     chr1   100-149      * |       500
+  peak2     chr1   200-249      * |       800
+  peak3     chr1   300-349      * |       300
   -------
   seqinfo: 1 sequence from an unspecified genome; no seqlengths</code></pre>
 </div>
@@ -378,9 +384,9 @@ colData names(1): condition</code></pre>
 <span><span class="op">)</span></span>
 <span><span class="va">si</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Seqinfo object with 1 sequence from an unspecified genome; no seqlengths:
+<pre><code>Seqinfo object with 1 sequence from hg38 genome:
   seqnames seqlengths isCircular genome
-  chr1             NA         NA   &lt;NA&gt;</code></pre>
+  chr1      248956422      FALSE   hg38</code></pre>
 </div>
 </div>
 </section></section><section class="level2"><h2 id="propagating-object-metadata">Propagating object metadata<a class="anchor" aria-label="anchor" href="#propagating-object-metadata"></a>
@@ -390,7 +396,11 @@ colData names(1): condition</code></pre>
 <div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://jeroen.r-universe.dev/jsonlite" class="external-link">jsonlite</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/pkg/S4Vectors/man/Annotated-class.html" class="external-link">metadata</a></span><span class="op">(</span><span class="va">se</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>genome <span class="op">=</span> <span class="st">"hg38"</span>, pipeline <span class="op">=</span> <span class="st">"v2.1"</span>, n_samples <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/pkg/S4Vectors/man/Annotated-class.html" class="external-link">metadata</a></span><span class="op">(</span><span class="va">se</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>  timestamp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.POSIXlt.html" class="external-link">as.POSIXct</a></span><span class="op">(</span><span class="st">"2020-01-01 12:00:00"</span>, tz <span class="op">=</span> <span class="st">"UTC"</span><span class="op">)</span>,</span>
+<span>  pipeline <span class="op">=</span> <span class="st">"v2.1"</span>,</span>
+<span>  n_samples <span class="op">=</span> <span class="fl">4L</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">tmp_json</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".json"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/writeLines.html" class="external-link">writeLines</a></span><span class="op">(</span><span class="fu"><a href="https://jeroen.r-universe.dev/jsonlite/reference/fromJSON.html" class="external-link">toJSON</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/S4Vectors/man/Annotated-class.html" class="external-link">metadata</a></span><span class="op">(</span><span class="va">se</span><span class="op">)</span>, pretty <span class="op">=</span> <span class="cn">TRUE</span>, auto_unbox <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="va">tmp_json</span><span class="op">)</span></span>
@@ -398,8 +408,8 @@ colData names(1): condition</code></pre>
 <span><span class="fu"><a href="https://rdrr.io/pkg/S4Vectors/man/Annotated-class.html" class="external-link">metadata</a></span><span class="op">(</span><span class="va">se_from_rds</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://jeroen.r-universe.dev/jsonlite/reference/fromJSON.html" class="external-link">fromJSON</a></span><span class="op">(</span><span class="va">tmp_json</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/pkg/S4Vectors/man/Annotated-class.html" class="external-link">metadata</a></span><span class="op">(</span><span class="va">se_from_rds</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>$genome
-[1] "hg38"
+<pre><code>$timestamp
+[1] "2020-01-01 12:00:00"
 
 $pipeline
 [1] "v2.1"

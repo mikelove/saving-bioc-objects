@@ -109,12 +109,20 @@ class is not defined at all in the earlier version, or that it exists
 but its definition has changed — new slots added, slots renamed or
 removed, or infrastructure moved between packages.
 
-A concrete example: in a recent Bioconductor release, `Seqinfo` was
-moved out of `GenomicRanges` into its own package. A `GRanges`
-serialized on a machine with the newer setup could not be loaded on a
-machine with the older `GenomicRanges` because the class definition for
-the embedded `Seqinfo` slot was not found. The reverse was also true:
-older `GRanges` objects loaded into a newer session sometimes required
+A concrete example: in Bioconductor 3.22, `Seqinfo` was moved out of
+`GenomicRanges` into its own package. A `GRanges` serialized under BioC
+≥ 3.22 can still be loaded on a machine running BioC \< 3.22, and many
+basic operations work — [`show()`](https://rdrr.io/r/methods/show.html),
+[`seqnames()`](https://rdrr.io/pkg/Seqinfo/man/seqinfo.html),
+[`ranges()`](https://rdrr.io/pkg/IRanges/man/range-squeezers.html),
+[`mcols()`](https://rdrr.io/pkg/S4Vectors/man/Vector-class.html), and
+`[` among them. But operations that require the `Seqinfo` package (such
+as [`shift()`](https://rdrr.io/pkg/IRanges/man/intra-range-methods.html)
+or
+[`reduce()`](https://rdrr.io/pkg/IRanges/man/inter-range-methods.html))
+will fail with a confusing “package not available” error. The practical
+advice is to upgrade to BioC ≥ 3.22. The reverse was also true: older
+`GRanges` objects loaded into a newer session sometimes required
 [`updateObject()`](https://rdrr.io/pkg/BiocGenerics/man/updateObject.html)
 to migrate the internal representation:
 
@@ -136,7 +144,9 @@ library(GenomicRanges)
 
 gr <- GRanges(
   seqnames = "chr1",
-  ranges = IRanges(start = c(100, 200, 300), width = 50)
+  ranges = IRanges(start = c(100, 200, 300), width = 50),
+  seqinfo = Seqinfo(seqnames = "chr1", seqlengths = 248956422,
+                    isCircular = FALSE, genome = "hg38")
 )
 names(gr) <- c("peak1", "peak2", "peak3")
 gr$score  <- c(500, 800, 300)   # standard BED score column
@@ -352,7 +362,7 @@ gr
       peak2     chr1   200-249      * |       800      -0.5
       peak3     chr1   300-349      * |       300       2.1
       -------
-      seqinfo: 1 sequence from an unspecified genome; no seqlengths
+      seqinfo: 1 sequence from hg38 genome
 
 Both `rtracklayer` and `plyranges` can write BED files:
 
@@ -368,37 +378,43 @@ tmp_bed2 <- tempfile(fileext = ".bed")
 write_bed(gr, tmp_bed2)
 ```
 
-When reading back, names and the standard `score` column are preserved,
-but `log2fc` is silently dropped — BED has no mechanism to carry
-arbitrary metadata columns:
+When reading back, the standard `score` column is preserved, but
+`log2fc` is silently dropped — BED has no mechanism to carry arbitrary
+metadata columns. Range names are stored in the BED name field but come
+back as a `$name` metadata column rather than as R names on the object;
+restore them manually:
 
 ``` r
 
 gr_rtracklayer <- import(tmp_bed)
+names(gr_rtracklayer) <- gr_rtracklayer$name
+gr_rtracklayer$name <- NULL
 gr_rtracklayer
 ```
 
-    GRanges object with 3 ranges and 2 metadata columns:
-          seqnames    ranges strand |        name     score
-             <Rle> <IRanges>  <Rle> | <character> <numeric>
-      [1]     chr1   100-149      * |       peak1       500
-      [2]     chr1   200-249      * |       peak2       800
-      [3]     chr1   300-349      * |       peak3       300
+    GRanges object with 3 ranges and 1 metadata column:
+            seqnames    ranges strand |     score
+               <Rle> <IRanges>  <Rle> | <numeric>
+      peak1     chr1   100-149      * |       500
+      peak2     chr1   200-249      * |       800
+      peak3     chr1   300-349      * |       300
       -------
       seqinfo: 1 sequence from an unspecified genome; no seqlengths
 
 ``` r
 
 gr_plyranges <- read_bed(tmp_bed2)
+names(gr_plyranges) <- gr_plyranges$name
+gr_plyranges$name <- NULL
 gr_plyranges
 ```
 
-    GRanges object with 3 ranges and 2 metadata columns:
-          seqnames    ranges strand |        name     score
-             <Rle> <IRanges>  <Rle> | <character> <numeric>
-      [1]     chr1   100-149      * |       peak1       500
-      [2]     chr1   200-249      * |       peak2       800
-      [3]     chr1   300-349      * |       peak3       300
+    GRanges object with 3 ranges and 1 metadata column:
+            seqnames    ranges strand |     score
+               <Rle> <IRanges>  <Rle> | <numeric>
+      peak1     chr1   100-149      * |       500
+      peak2     chr1   200-249      * |       800
+      peak3     chr1   300-349      * |       300
       -------
       seqinfo: 1 sequence from an unspecified genome; no seqlengths
 
@@ -451,9 +467,9 @@ si <- Seqinfo(
 si
 ```
 
-    Seqinfo object with 1 sequence from an unspecified genome; no seqlengths:
+    Seqinfo object with 1 sequence from hg38 genome:
       seqnames seqlengths isCircular genome
-      chr1             NA         NA   <NA>
+      chr1      248956422      FALSE   hg38
 
 ## Propagating object metadata
 
@@ -468,7 +484,11 @@ data:
 
 library(jsonlite)
 
-metadata(se) <- list(genome = "hg38", pipeline = "v2.1", n_samples = 4L)
+metadata(se) <- list(
+  timestamp = as.POSIXct("2020-01-01 12:00:00", tz = "UTC"),
+  pipeline = "v2.1",
+  n_samples = 4L
+)
 
 tmp_json <- tempfile(fileext = ".json")
 writeLines(toJSON(metadata(se), pretty = TRUE, auto_unbox = TRUE), tmp_json)
@@ -477,8 +497,8 @@ metadata(se_from_rds) <- fromJSON(tmp_json)
 metadata(se_from_rds)
 ```
 
-    $genome
-    [1] "hg38"
+    $timestamp
+    [1] "2020-01-01 12:00:00"
 
     $pipeline
     [1] "v2.1"
