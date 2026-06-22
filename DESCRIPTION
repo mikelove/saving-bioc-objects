@@ -14,8 +14,10 @@ Roxygen: list(markdown = TRUE)
 biocViews: DataRepresentation, Infrastructure, Software
 Suggests:
     SummarizedExperiment,
+    SingleCellExperiment,
     GenomicRanges,
     HDF5Array,
+    anndataR,
     alabaster.base,
     alabaster.se,
     rtracklayer,

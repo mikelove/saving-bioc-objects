@@ -2,6 +2,7 @@ url: https://mikelove.github.io/saving-bioc-objects
 
 template:
   bootstrap: 5
+  theme: kate
   bslib:
     primary: "#0054AD"
 
