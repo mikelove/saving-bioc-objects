@@ -48,7 +48,7 @@
       <h1>Saving Bioconductor Objects for Sharing</h1>
 
       <p class="author">Michael Love</p>
-      <p class="date">2026-06-08</p>
+      <p class="date">2026-06-22</p>
 
       <small class="dont-index">Source: <a href="https://github.com/mikelove/saving-bioc-objects/blob/main/vignettes/savingBiocObjects.qmd" class="external-link"><code>vignettes/savingBiocObjects.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -72,11 +72,14 @@
 <li>Reproducibility: should the saved form capture provenance and metadata alongside data?</li>
 </ul>
 <p>This vignette walks through the main options, their trade-offs, and some recommendations for common scenarios.</p>
+</section><section class="level2"><h2 id="acknowledgments">Acknowledgments<a class="anchor" aria-label="anchor" href="#acknowledgments"></a>
+</h2>
+<p>The content of this vignette has been informed by discussions on the <a href="https://chat.bioconductor.org/" class="external-link">Bioconductor community Zulip</a>, including contributions from Kevin Rue-Albrecht, Johannes Rainer, Lori Shepherd, Jayaram Kancherla, Aaron Lun, Hervé Pagès, Laurent Gatto, Vince Carey, Sean Davis, Robert Castelo, Hugo Gruson, and Luke Zappia.</p>
 </section><section class="level2"><h2 id="r-serialization">R serialization<a class="anchor" aria-label="anchor" href="#r-serialization"></a>
 </h2>
 <section class="level3"><h3 id="saverds-and-readrds">saveRDS and readRDS<a class="anchor" aria-label="anchor" href="#saverds-and-readrds"></a>
 </h3>
-<p>The simplest approach is R’s built-in binary serialization. <code><a href="https://rdrr.io/pkg/BiocGenerics/man/saveRDS.html" class="external-link">saveRDS()</a></code> saves a single object to an <code>.rds</code> file; <code><a href="https://rdrr.io/r/base/save.html" class="external-link">save()</a></code> bundles one or more named objects into an <code>.RData</code> (or <code>.rda</code>) file.</p>
+<p>The simplest approach is R’s built-in binary serialization. <code><a href="https://rdrr.io/pkg/BiocGenerics/man/saveRDS.html" class="external-link">saveRDS()</a></code> saves a single object to an RDS file (the acronym is not defined in the man pages but likely stands for “R Data Serialization”); <code><a href="https://rdrr.io/r/base/save.html" class="external-link">save()</a></code> bundles one or more named objects into an <code>.RData</code> (or <code>.rda</code>) file.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://bioconductor.org/packages/SummarizedExperiment" class="external-link">SummarizedExperiment</a></span><span class="op">)</span></span>
@@ -127,7 +130,11 @@ colData names(1): condition</code></pre>
 <li>Large objects are loaded entirely into RAM; there is no lazy / on-disk access.</li>
 </ul>
 <p>When to use it: quick sharing between R users on the same project, saving intermediate objects in a pipeline, anything under ~1 GB.</p>
-<p>If your workflow downloads <code>.rds</code> files from a remote URL, consider using <a href="https://bioconductor.org/packages/BiocFileCache" class="external-link"><code>BiocFileCache</code></a> to cache them locally so they are only fetched once.</p>
+<p>If your workflow downloads RDS files from a remote URL, consider using <a href="https://bioconductor.org/packages/BiocFileCache" class="external-link"><code>BiocFileCache</code></a> to cache them locally so they are only fetched once.</p>
+</section><section class="level3"><h3 id="reading-rds-files-in-python">Reading RDS files in Python<a class="anchor" aria-label="anchor" href="#reading-rds-files-in-python"></a>
+</h3>
+<p><a href="https://biocpy.github.io/" class="external-link">BiocPy</a> is a Python ecosystem that brings Bioconductor’s core data structures to Python, including <a href="https://github.com/BiocPy/BiocFrame" class="external-link">BiocFrame</a>, <a href="https://github.com/BiocPy/IRanges" class="external-link">IRanges</a>, <a href="https://github.com/BiocPy/GenomicRanges" class="external-link">GenomicRanges</a>, <a href="https://github.com/BiocPy/SummarizedExperiment" class="external-link">SummarizedExperiment</a>, <a href="https://github.com/BiocPy/SingleCellExperiment" class="external-link">SingleCellExperiment</a>, and <a href="https://github.com/BiocPy/MultiAssayExperiment" class="external-link">MultiAssayExperiment</a>.</p>
+<p>Python users can read RDS files with the <a href="https://github.com/BiocPy/rds2py" class="external-link">rds2py</a> package from the BiocPy ecosystem. Standard R types map to NumPy/SciPy equivalents (e.g. numeric vectors become <code>numpy.ndarray</code>), and Bioconductor classes such as <code>SummarizedExperiment</code>, <code>SingleCellExperiment</code>, <code>GRanges</code>, and <code>MultiAssayExperiment</code> are converted to their BiocPy counterparts. For unrecognised S4 classes the object falls back to a dictionary so no data is lost. Support for writing RDS files from Python is also in development.</p>
 </section><section class="level3"><h3 id="cross-release-stability">Cross-release stability<a class="anchor" aria-label="anchor" href="#cross-release-stability"></a>
 </h3>
 <p>There is no guarantee that an S4 object serialized today will work with older versions of Bioconductor. The most common reasons are that the S4 class is not defined at all in the earlier version, or that it exists but its definition has changed — new slots added, slots renamed or removed, or infrastructure moved between packages.</p>
@@ -199,7 +206,7 @@ colnames(4): 1 2 3 4
 colData names(1): condition</code></pre>
 </div>
 </div>
-<p>The saved directory contains an HDF5 file with the assay data and an <code>.rds</code> file for the non-assay metadata.</p>
+<p>The saved directory contains an HDF5 file with the assay data and an RDS file for the non-assay metadata.</p>
 <p>Advantages:</p>
 <ul>
 <li>Assay data is stored on disk; only the chunks you access are read into RAM.</li>
@@ -209,36 +216,59 @@ colData names(1): condition</code></pre>
 <p>Disadvantages:</p>
 <ul>
 <li>The output is a directory, not a single file, which complicates transfer (use <code>tar</code> or <code>zip</code> before sharing).</li>
-<li>The <code>.rds</code> envelope for metadata is still R-specific.</li>
+<li>The RDS envelope for metadata is still R-specific.</li>
 <li>Write performance can be slower than <code><a href="https://rdrr.io/pkg/BiocGenerics/man/saveRDS.html" class="external-link">saveRDS()</a></code> for small objects.</li>
 </ul>
 <p>When to use it: large single-cell or spatial datasets where you want on-disk access; workflows shared between R users who need memory efficiency.</p>
 </section><section class="level3"><h3 id="summarizedexperiment-and-anndata">SummarizedExperiment and AnnData<a class="anchor" aria-label="anchor" href="#summarizedexperiment-and-anndata"></a>
 </h3>
-<p>For single-cell workflows that move between R and Python, the <a href="https://bioconductor.org/packages/zellkonverter" class="external-link">zellkonverter</a> package converts directly between <code>SingleCellExperiment</code> and the Python <code>AnnData</code> format (<code>.h5ad</code> files used by scanpy and related tools). Like <code>HDF5Array</code>, <code>.h5ad</code> is an HDF5-based format.</p>
+<p>For single-cell workflows that move between R and Python, the <code>.h5ad</code> format used by scanpy and related tools is often the most convenient path when collaborators are working in Python. Like <code>HDF5Array</code>, <code>.h5ad</code> is an HDF5-based format. The trade-off relative to alabaster is that <code>.h5ad</code> is AnnData-specific rather than a general Bioconductor serialization format.</p>
+<p>The recommended starting point is the <a href="https://anndatar.scverse.org/" class="external-link">anndataR</a> package, a more recent and complete implementation that is actively maintained as part of the scverse ecosystem:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># not evaluated — zellkonverter installs a full Python environment via basilisk</span></span>
-<span><span class="co"># on first use, which takes too long in CI</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/theislab/zellkonverter" class="external-link">zellkonverter</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://anndataR.scverse.org/" class="external-link">anndataR</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">SingleCellExperiment</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">sce</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/methods/as.html" class="external-link">as</a></span><span class="op">(</span><span class="va">se</span>, <span class="st">"SingleCellExperiment"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">tmp_h5ad</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".h5ad"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/pkg/zellkonverter/man/writeH5AD.html" class="external-link">writeH5AD</a></span><span class="op">(</span><span class="va">sce</span>, file <span class="op">=</span> <span class="va">tmp_h5ad</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://anndataR.scverse.org/reference/write_h5ad.html" class="external-link">write_h5ad</a></span><span class="op">(</span><span class="va">sce</span>, path <span class="op">=</span> <span class="va">tmp_h5ad</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">sce_from_h5ad</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/zellkonverter/man/readH5AD.html" class="external-link">readH5AD</a></span><span class="op">(</span><span class="va">tmp_h5ad</span><span class="op">)</span></span>
+<span><span class="va">sce_from_h5ad</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://anndataR.scverse.org/reference/read_h5ad.html" class="external-link">read_h5ad</a></span><span class="op">(</span><span class="va">tmp_h5ad</span>, as <span class="op">=</span> <span class="st">"SingleCellExperiment"</span><span class="op">)</span></span>
+<span><span class="va">sce_from_h5ad</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>class: SingleCellExperiment
+dim: 3 4
+metadata(0):
+assays(1): counts
+rownames(3): 1 2 3
+rowData names(1): gene
+colnames(4): 1 2 3 4
+colData names(1): condition
+reducedDimNames(0):
+mainExpName: NULL
+altExpNames(0):</code></pre>
+</div>
+</div>
+<p>The <a href="https://bioconductor.org/packages/zellkonverter" class="external-link">zellkonverter</a> package is an alternative that also converts directly between <code>SingleCellExperiment</code> and <code>.h5ad</code>. It remains actively maintained and has advantages in some cases, though at the cost of managing a Python environment via <code>basilisk</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># not evaluated — zellkonverter installs a full Python environment via basilisk</span></span>
+<span><span class="co"># on first use, which takes too long in CI</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">zellkonverter</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">writeH5AD</span><span class="op">(</span><span class="va">sce</span>, file <span class="op">=</span> <span class="st">"sce.h5ad"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">sce_from_h5ad</span> <span class="op">&lt;-</span> <span class="fu">readH5AD</span><span class="op">(</span><span class="st">"sce.h5ad"</span><span class="op">)</span></span>
 <span><span class="va">sce_from_h5ad</span></span></code></pre></div>
 </div>
-<p>This is often the most convenient path when collaborators are working in scanpy, as <code>.h5ad</code> is the native format on that side. The trade-off relative to alabaster is that <code>.h5ad</code> is AnnData-specific rather than a general Bioconductor serialization format.</p>
 </section></section><section class="level2"><h2 id="the-alabaster-ecosystem">The alabaster ecosystem<a class="anchor" aria-label="anchor" href="#the-alabaster-ecosystem"></a>
 </h2>
 <section class="level3"><h3 id="saveobject-and-readobject">saveObject and readObject<a class="anchor" aria-label="anchor" href="#saveobject-and-readobject"></a>
 </h3>
 <p>The <a href="https://bioconductor.org/packages/alabaster.base" class="external-link"><code>alabaster</code></a> family of packages is part of the broader <a href="https://github.com/ArtifactDB" class="external-link">ArtifactDB</a> project, which provides a multi-language system for storing and retrieving analysis-ready Bioconductor objects. The core idea is to save objects as directories of standard files (HDF5, JSON, CSV) whose format is defined by explicit, versioned specifications — meaning the saved form is readable without R, and can evolve over time without breaking previously saved objects.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/ArtifactDB/alabaster.base" class="external-link">alabaster.base</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">alabaster.se</span><span class="op">)</span></span>
 <span></span>
@@ -283,7 +313,7 @@ colData names(1): condition</code></pre>
 </h3>
 <p>When the object is a <code>GRanges</code> or similar ranges object and the goal is interoperability with other tools (genome browsers, Python, command-line utilities), exporting to BED format is often more useful than R-specific serialization. Our <code>gr</code> has range names, a standard BED score column, and an extra metadata column <code>log2fc</code>:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">gr</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>GRanges object with 3 ranges and 2 metadata columns:
@@ -298,7 +328,7 @@ colData names(1): condition</code></pre>
 </div>
 <p>Both <code>rtracklayer</code> and <code>plyranges</code> can write BED files:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">rtracklayer</span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyomics.github.io/plyranges" class="external-link">plyranges</a></span><span class="op">)</span></span>
 <span></span>
@@ -310,7 +340,7 @@ colData names(1): condition</code></pre>
 </div>
 <p>When reading back, the standard <code>score</code> column is preserved, but <code>log2fc</code> is silently dropped — BED has no mechanism to carry arbitrary metadata columns. Range names are stored in the BED name field but come back as a <code>$name</code> metadata column rather than as R names on the object; restore them manually:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">gr_rtracklayer</span> <span class="op">&lt;-</span> <span class="fu">import</span><span class="op">(</span><span class="va">tmp_bed</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">gr_rtracklayer</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">gr_rtracklayer</span><span class="op">$</span><span class="va">name</span></span>
 <span><span class="va">gr_rtracklayer</span><span class="op">$</span><span class="va">name</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
@@ -325,7 +355,7 @@ colData names(1): condition</code></pre>
   -------
   seqinfo: 1 sequence from an unspecified genome; no seqlengths</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">gr_plyranges</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tidyomics.github.io/plyranges/reference/io-bed-read.html" class="external-link">read_bed</a></span><span class="op">(</span><span class="va">tmp_bed2</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">gr_plyranges</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">gr_plyranges</span><span class="op">$</span><span class="va">name</span></span>
 <span><span class="va">gr_plyranges</span><span class="op">$</span><span class="va">name</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
@@ -343,9 +373,10 @@ colData names(1): condition</code></pre>
 </div>
 </section><section class="level3"><h3 id="saving-metadata-columns">Saving metadata columns<a class="anchor" aria-label="anchor" href="#saving-metadata-columns"></a>
 </h3>
-<p>To round-trip extra mcols, write them to a sidecar file. Here using plyranges to read the BED back, then reattach from the sidecar:</p>
+<p>If preserving all metadata columns is the priority and BED compatibility is not required, the simplest approach is the TSV round-trip shown earlier: <code>write.table(as.data.frame(gr), ...)</code> followed by <code>makeGRangesFromDataFrame(..., keep.extra.columns = TRUE)</code> restores all mcols in one step without a sidecar.</p>
+<p>When you do need a BED file (e.g. for a genome browser or a tool that expects BED input), extra mcols can be preserved by writing them to a sidecar file. Here using plyranges to read the BED back, then reattaching from the sidecar:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tmp_meta</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".tsv"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.table</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">gr</span><span class="op">)</span>, log2fc <span class="op">=</span> <span class="va">gr</span><span class="op">$</span><span class="va">log2fc</span><span class="op">)</span>,</span>
@@ -371,7 +402,7 @@ colData names(1): condition</code></pre>
 </h3>
 <p>BED files do not store chromosome lengths or genome build information, so <code>Seqinfo</code> is silently dropped on export. To preserve it, write it out alongside the BED file and restore it on load:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tmp_seqinfo</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".csv"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.csv</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/BiocGenerics/man/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/Seqinfo/man/seqinfo.html" class="external-link">seqinfo</a></span><span class="op">(</span><span class="va">gr</span><span class="op">)</span><span class="op">)</span>, <span class="va">tmp_seqinfo</span><span class="op">)</span></span>
 <span></span>
@@ -393,7 +424,7 @@ colData names(1): condition</code></pre>
 </h2>
 <p>Object-level metadata stored in <code>metadata(object)</code> — things like processing parameters, provenance notes, or experiment descriptors — is lost in any format that only encodes the ranges or assay data. This applies whether you are writing a BED file, an HDF5 matrix, or any other non-R format. Write it to a JSON sidecar file so it travels with the data:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://jeroen.r-universe.dev/jsonlite" class="external-link">jsonlite</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/pkg/S4Vectors/man/Annotated-class.html" class="external-link">metadata</a></span><span class="op">(</span><span class="va">se</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -448,8 +479,7 @@ $n_samples
 <tr class="even">
 <td>SingleCellExperiment ↔︎ Python AnnData</td>
 <td>
-<code><a href="https://rdrr.io/pkg/zellkonverter/man/writeH5AD.html" class="external-link">zellkonverter::writeH5AD()</a></code> / <code><a href="https://rdrr.io/pkg/zellkonverter/man/readH5AD.html" class="external-link">readH5AD()</a></code>
-</td>
+<code><a href="https://anndataR.scverse.org/reference/write_h5ad.html" class="external-link">anndataR::write_h5ad()</a></code> / <code><a href="https://anndataR.scverse.org/reference/read_h5ad.html" class="external-link">read_h5ad()</a></code> (or <code>zellkonverter</code> for Python-env integration)</td>
 </tr>
 <tr class="odd">
 <td>Cross-language (R + Python), general</td>
@@ -465,7 +495,7 @@ $n_samples
 </section><section class="level2"><h2 id="session-info">Session info<a class="anchor" aria-label="anchor" href="#session-info"></a>
 </h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>R version 4.6.0 (2026-04-24)
@@ -493,18 +523,19 @@ other attached packages:
  [1] jsonlite_2.0.0              plyranges_1.32.0
  [3] dplyr_1.2.1                 rtracklayer_1.72.0
  [5] alabaster.se_1.12.0         alabaster.base_1.12.0
- [7] HDF5Array_1.40.0            h5mread_1.4.0
- [9] rhdf5_2.56.0                DelayedArray_0.38.2
-[11] SparseArray_1.12.2          S4Arrays_1.12.0
-[13] abind_1.4-8                 Matrix_1.7-5
-[15] SummarizedExperiment_1.42.0 Biobase_2.72.0
-[17] GenomicRanges_1.64.0        Seqinfo_1.2.0
-[19] IRanges_2.46.0              S4Vectors_0.50.1
-[21] BiocGenerics_0.58.1         generics_0.1.4
-[23] MatrixGenerics_1.24.0       matrixStats_1.5.0
+ [7] SingleCellExperiment_1.34.0 anndataR_1.2.0
+ [9] HDF5Array_1.40.0            h5mread_1.4.0
+[11] rhdf5_2.56.0                DelayedArray_0.38.2
+[13] SparseArray_1.12.2          S4Arrays_1.12.0
+[15] abind_1.4-8                 Matrix_1.7-5
+[17] SummarizedExperiment_1.42.0 Biobase_2.72.0
+[19] GenomicRanges_1.64.0        Seqinfo_1.2.0
+[21] IRanges_2.46.0              S4Vectors_0.50.1
+[23] BiocGenerics_0.58.1         generics_0.1.4
+[25] MatrixGenerics_1.24.0       matrixStats_1.5.0
 
 loaded via a namespace (and not attached):
- [1] rjson_0.2.23             xfun_0.58                lattice_0.22-9
+ [1] rjson_0.2.23             xfun_0.59                lattice_0.22-9
  [4] rhdf5filters_1.24.0      vctrs_0.7.3              tools_4.6.0
  [7] bitops_1.0-9             curl_7.1.0               parallel_4.6.0
 [10] tibble_3.3.1             pkgconfig_2.0.3          cigarillo_1.2.0
@@ -512,14 +543,15 @@ loaded via a namespace (and not attached):
 [16] Biostrings_2.80.1        codetools_0.2-20         htmltools_0.5.9
 [19] RCurl_1.98-1.19          alabaster.matrix_1.12.0  yaml_2.3.12
 [22] pillar_1.11.1            crayon_1.5.3             BiocParallel_1.46.0
-[25] tidyselect_1.2.1         digest_0.6.39            restfulr_0.0.16
-[28] fastmap_1.2.0            grid_4.6.0               cli_3.6.6
-[31] magrittr_2.0.5           XML_3.99-0.23            rmarkdown_2.31
-[34] XVector_0.52.0           httr_1.4.8               otel_0.2.0
-[37] evaluate_1.0.5           knitr_1.51               BiocIO_1.22.0
-[40] rlang_1.2.0              Rcpp_1.1.1-1.1           glue_1.8.1
-[43] alabaster.ranges_1.12.0  alabaster.schemas_1.12.0 R6_2.6.1
-[46] Rhdf5lib_2.0.0           GenomicAlignments_1.48.0</code></pre>
+[25] tidyselect_1.2.1         digest_0.6.39            purrr_1.2.2
+[28] restfulr_0.0.17          fastmap_1.2.0            grid_4.6.0
+[31] cli_3.6.6                magrittr_2.0.5           XML_3.99-0.23
+[34] rmarkdown_2.31           XVector_0.52.0           httr_1.4.8
+[37] otel_0.2.0               reticulate_1.46.0        png_0.1-9
+[40] evaluate_1.0.5           knitr_1.51               BiocIO_1.22.0
+[43] rlang_1.2.0              Rcpp_1.1.1-1.1           glue_1.8.1
+[46] alabaster.ranges_1.12.0  alabaster.schemas_1.12.0 R6_2.6.1
+[49] Rhdf5lib_2.0.0           GenomicAlignments_1.48.0</code></pre>
 </div>
 </div>
 </section><script id="quarto-html-after-body" type="application/javascript">

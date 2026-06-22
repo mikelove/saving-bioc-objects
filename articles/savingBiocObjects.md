@@ -22,13 +22,22 @@ The answer depends on several factors:
 This vignette walks through the main options, their trade-offs, and some
 recommendations for common scenarios.
 
+## Acknowledgments
+
+The content of this vignette has been informed by discussions on the
+[Bioconductor community Zulip](https://chat.bioconductor.org/),
+including contributions from Kevin Rue-Albrecht, Johannes Rainer, Lori
+Shepherd, Jayaram Kancherla, Aaron Lun, Hervé Pagès, Laurent Gatto,
+Vince Carey, Sean Davis, Robert Castelo, Hugo Gruson, and Luke Zappia.
+
 ## R serialization
 
 ### saveRDS and readRDS
 
 The simplest approach is R’s built-in binary serialization.
 [`saveRDS()`](https://rdrr.io/pkg/BiocGenerics/man/saveRDS.html) saves a
-single object to an `.rds` file;
+single object to an RDS file (the acronym is not defined in the man
+pages but likely stands for “R Data Serialization”);
 [`save()`](https://rdrr.io/r/base/save.html) bundles one or more named
 objects into an `.RData` (or `.rda`) file.
 
@@ -97,9 +106,31 @@ Disadvantages:
 When to use it: quick sharing between R users on the same project,
 saving intermediate objects in a pipeline, anything under ~1 GB.
 
-If your workflow downloads `.rds` files from a remote URL, consider
-using [`BiocFileCache`](https://bioconductor.org/packages/BiocFileCache)
-to cache them locally so they are only fetched once.
+If your workflow downloads RDS files from a remote URL, consider using
+[`BiocFileCache`](https://bioconductor.org/packages/BiocFileCache) to
+cache them locally so they are only fetched once.
+
+### Reading RDS files in Python
+
+[BiocPy](https://biocpy.github.io/) is a Python ecosystem that brings
+Bioconductor’s core data structures to Python, including
+[BiocFrame](https://github.com/BiocPy/BiocFrame),
+[IRanges](https://github.com/BiocPy/IRanges),
+[GenomicRanges](https://github.com/BiocPy/GenomicRanges),
+[SummarizedExperiment](https://github.com/BiocPy/SummarizedExperiment),
+[SingleCellExperiment](https://github.com/BiocPy/SingleCellExperiment),
+and
+[MultiAssayExperiment](https://github.com/BiocPy/MultiAssayExperiment).
+
+Python users can read RDS files with the
+[rds2py](https://github.com/BiocPy/rds2py) package from the BiocPy
+ecosystem. Standard R types map to NumPy/SciPy equivalents (e.g. numeric
+vectors become `numpy.ndarray`), and Bioconductor classes such as
+`SummarizedExperiment`, `SingleCellExperiment`, `GRanges`, and
+`MultiAssayExperiment` are converted to their BiocPy counterparts. For
+unrecognised S4 classes the object falls back to a dictionary so no data
+is lost. Support for writing RDS files from Python is also in
+development.
 
 ### Cross-release stability
 
@@ -208,8 +239,8 @@ se_from_hdf5
     colnames(4): 1 2 3 4
     colData names(1): condition
 
-The saved directory contains an HDF5 file with the assay data and an
-`.rds` file for the non-assay metadata.
+The saved directory contains an HDF5 file with the assay data and an RDS
+file for the non-assay metadata.
 
 Advantages:
 
@@ -223,7 +254,7 @@ Disadvantages:
 
 - The output is a directory, not a single file, which complicates
   transfer (use `tar` or `zip` before sharing).
-- The `.rds` envelope for metadata is still R-specific.
+- The RDS envelope for metadata is still R-specific.
 - Write performance can be slower than
   [`saveRDS()`](https://rdrr.io/pkg/BiocGenerics/man/saveRDS.html) for
   small objects.
@@ -234,32 +265,61 @@ efficiency.
 
 ### SummarizedExperiment and AnnData
 
-For single-cell workflows that move between R and Python, the
-[zellkonverter](https://bioconductor.org/packages/zellkonverter) package
-converts directly between `SingleCellExperiment` and the Python
-`AnnData` format (`.h5ad` files used by scanpy and related tools). Like
-`HDF5Array`, `.h5ad` is an HDF5-based format.
+For single-cell workflows that move between R and Python, the `.h5ad`
+format used by scanpy and related tools is often the most convenient
+path when collaborators are working in Python. Like `HDF5Array`, `.h5ad`
+is an HDF5-based format. The trade-off relative to alabaster is that
+`.h5ad` is AnnData-specific rather than a general Bioconductor
+serialization format.
+
+The recommended starting point is the
+[anndataR](https://anndatar.scverse.org/) package, a more recent and
+complete implementation that is actively maintained as part of the
+scverse ecosystem:
+
+``` r
+
+library(anndataR)
+library(SingleCellExperiment)
+
+sce <- as(se, "SingleCellExperiment")
+
+tmp_h5ad <- tempfile(fileext = ".h5ad")
+write_h5ad(sce, path = tmp_h5ad)
+
+sce_from_h5ad <- read_h5ad(tmp_h5ad, as = "SingleCellExperiment")
+sce_from_h5ad
+```
+
+    class: SingleCellExperiment
+    dim: 3 4
+    metadata(0):
+    assays(1): counts
+    rownames(3): 1 2 3
+    rowData names(1): gene
+    colnames(4): 1 2 3 4
+    colData names(1): condition
+    reducedDimNames(0):
+    mainExpName: NULL
+    altExpNames(0):
+
+The [zellkonverter](https://bioconductor.org/packages/zellkonverter)
+package is an alternative that also converts directly between
+`SingleCellExperiment` and `.h5ad`. It remains actively maintained and
+has advantages in some cases, though at the cost of managing a Python
+environment via `basilisk`.
 
 ``` r
 
 # not evaluated — zellkonverter installs a full Python environment via basilisk
 # on first use, which takes too long in CI
 library(zellkonverter)
-library(SingleCellExperiment)
 
-sce <- as(se, "SingleCellExperiment")
+writeH5AD(sce, file = "sce.h5ad")
 
-tmp_h5ad <- tempfile(fileext = ".h5ad")
-writeH5AD(sce, file = tmp_h5ad)
-
-sce_from_h5ad <- readH5AD(tmp_h5ad)
+sce_from_h5ad <- readH5AD("sce.h5ad")
 sce_from_h5ad
 ```
-
-This is often the most convenient path when collaborators are working in
-scanpy, as `.h5ad` is the native format on that side. The trade-off
-relative to alabaster is that `.h5ad` is AnnData-specific rather than a
-general Bioconductor serialization format.
 
 ## The alabaster ecosystem
 
@@ -420,8 +480,16 @@ gr_plyranges
 
 ### Saving metadata columns
 
-To round-trip extra mcols, write them to a sidecar file. Here using
-plyranges to read the BED back, then reattach from the sidecar:
+If preserving all metadata columns is the priority and BED compatibility
+is not required, the simplest approach is the TSV round-trip shown
+earlier: `write.table(as.data.frame(gr), ...)` followed by
+`makeGRangesFromDataFrame(..., keep.extra.columns = TRUE)` restores all
+mcols in one step without a sidecar.
+
+When you do need a BED file (e.g. for a genome browser or a tool that
+expects BED input), extra mcols can be preserved by writing them to a
+sidecar file. Here using plyranges to read the BED back, then
+reattaching from the sidecar:
 
 ``` r
 
@@ -517,7 +585,7 @@ omitted before serializing.
 | Quick sharing between R users, same Bioc release | [`saveRDS()`](https://rdrr.io/pkg/BiocGenerics/man/saveRDS.html) |
 | Loading an object from an older Bioc release | [`updateObject()`](https://rdrr.io/pkg/BiocGenerics/man/updateObject.html) after [`readRDS()`](https://rdrr.io/r/base/readRDS.html) |
 | Large assay matrices, R-only | [`saveHDF5SummarizedExperiment()`](https://rdrr.io/pkg/HDF5Array/man/saveHDF5SummarizedExperiment.html) |
-| SingleCellExperiment ↔︎ Python AnnData | [`zellkonverter::writeH5AD()`](https://rdrr.io/pkg/zellkonverter/man/writeH5AD.html) / [`readH5AD()`](https://rdrr.io/pkg/zellkonverter/man/readH5AD.html) |
+| SingleCellExperiment ↔︎ Python AnnData | [`anndataR::write_h5ad()`](https://anndataR.scverse.org/reference/write_h5ad.html) / [`read_h5ad()`](https://anndataR.scverse.org/reference/read_h5ad.html) (or `zellkonverter` for Python-env integration) |
 | Cross-language (R + Python), general | `alabaster::saveObject()` |
 | Long-term archive / data portal | `alabaster::saveObject()` |
 
@@ -561,18 +629,19 @@ sessionInfo()
      [1] jsonlite_2.0.0              plyranges_1.32.0
      [3] dplyr_1.2.1                 rtracklayer_1.72.0
      [5] alabaster.se_1.12.0         alabaster.base_1.12.0
-     [7] HDF5Array_1.40.0            h5mread_1.4.0
-     [9] rhdf5_2.56.0                DelayedArray_0.38.2
-    [11] SparseArray_1.12.2          S4Arrays_1.12.0
-    [13] abind_1.4-8                 Matrix_1.7-5
-    [15] SummarizedExperiment_1.42.0 Biobase_2.72.0
-    [17] GenomicRanges_1.64.0        Seqinfo_1.2.0
-    [19] IRanges_2.46.0              S4Vectors_0.50.1
-    [21] BiocGenerics_0.58.1         generics_0.1.4
-    [23] MatrixGenerics_1.24.0       matrixStats_1.5.0
+     [7] SingleCellExperiment_1.34.0 anndataR_1.2.0
+     [9] HDF5Array_1.40.0            h5mread_1.4.0
+    [11] rhdf5_2.56.0                DelayedArray_0.38.2
+    [13] SparseArray_1.12.2          S4Arrays_1.12.0
+    [15] abind_1.4-8                 Matrix_1.7-5
+    [17] SummarizedExperiment_1.42.0 Biobase_2.72.0
+    [19] GenomicRanges_1.64.0        Seqinfo_1.2.0
+    [21] IRanges_2.46.0              S4Vectors_0.50.1
+    [23] BiocGenerics_0.58.1         generics_0.1.4
+    [25] MatrixGenerics_1.24.0       matrixStats_1.5.0
 
     loaded via a namespace (and not attached):
-     [1] rjson_0.2.23             xfun_0.58                lattice_0.22-9
+     [1] rjson_0.2.23             xfun_0.59                lattice_0.22-9
      [4] rhdf5filters_1.24.0      vctrs_0.7.3              tools_4.6.0
      [7] bitops_1.0-9             curl_7.1.0               parallel_4.6.0
     [10] tibble_3.3.1             pkgconfig_2.0.3          cigarillo_1.2.0
@@ -580,11 +649,12 @@ sessionInfo()
     [16] Biostrings_2.80.1        codetools_0.2-20         htmltools_0.5.9
     [19] RCurl_1.98-1.19          alabaster.matrix_1.12.0  yaml_2.3.12
     [22] pillar_1.11.1            crayon_1.5.3             BiocParallel_1.46.0
-    [25] tidyselect_1.2.1         digest_0.6.39            restfulr_0.0.16
-    [28] fastmap_1.2.0            grid_4.6.0               cli_3.6.6
-    [31] magrittr_2.0.5           XML_3.99-0.23            rmarkdown_2.31
-    [34] XVector_0.52.0           httr_1.4.8               otel_0.2.0
-    [37] evaluate_1.0.5           knitr_1.51               BiocIO_1.22.0
-    [40] rlang_1.2.0              Rcpp_1.1.1-1.1           glue_1.8.1
-    [43] alabaster.ranges_1.12.0  alabaster.schemas_1.12.0 R6_2.6.1
-    [46] Rhdf5lib_2.0.0           GenomicAlignments_1.48.0
+    [25] tidyselect_1.2.1         digest_0.6.39            purrr_1.2.2
+    [28] restfulr_0.0.17          fastmap_1.2.0            grid_4.6.0
+    [31] cli_3.6.6                magrittr_2.0.5           XML_3.99-0.23
+    [34] rmarkdown_2.31           XVector_0.52.0           httr_1.4.8
+    [37] otel_0.2.0               reticulate_1.46.0        png_0.1-9
+    [40] evaluate_1.0.5           knitr_1.51               BiocIO_1.22.0
+    [43] rlang_1.2.0              Rcpp_1.1.1-1.1           glue_1.8.1
+    [46] alabaster.ranges_1.12.0  alabaster.schemas_1.12.0 R6_2.6.1
+    [49] Rhdf5lib_2.0.0           GenomicAlignments_1.48.0
